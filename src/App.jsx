@@ -8,6 +8,7 @@ import Viewport from './ui/Viewport.jsx'
 import LayersPanel from './ui/LayersPanel.jsx'
 import Inspector from './ui/Inspector.jsx'
 import Timeline from './ui/Timeline.jsx'
+import { useShortcuts, HelpModal } from './ui/Shortcuts.jsx'
 
 const readDataURL = (file) => new Promise((res, rej) => {
   const r = new FileReader()
@@ -47,6 +48,7 @@ export default function App() {
   const loadProject = useStore((s) => s.loadProject)
   const [busy, setBusy] = useState(false)
   const [engineEpoch, setEngineEpoch] = useState(0)   // bumps whenever a new engine is created
+  useShortcuts()
 
   // default ground so the canvas is never a black void for the team
   useEffect(() => {
@@ -129,7 +131,9 @@ export default function App() {
     if (!layer?.src) return
     updateLayer(layerId, { depthState: 'pending' })
     try {
-      const d = await estimateDepth(layer.src, (m) => setUI({ status: `${layer.name}: ${m}` }))
+      const img = await loadImage(layer.src)
+      const d = await estimateDepth(layer.src, img, st.depth,
+        (m) => setUI({ status: `${layer.name}: ${m}` }))
       depthCache.set(layerId, d)
       engineRef.current?.setTexture(layerId + ':depth', depthTexture(d))
       updateLayer(layerId, { depthState: 'model' })
@@ -200,45 +204,49 @@ export default function App() {
   return (
     <div className="app">
       <div className="topbar">
-        <span className="brand">ShimmerLab</span>
+        <span className="brand">Shimmer<em>Lab</em></span>
 
-        <select defaultValue="" style={{ background: '#0f1113', border: '1px solid var(--line)', borderRadius: 4, padding: '3px 6px' }}
+        <select defaultValue="" style={{ minWidth: 130 }}
           onChange={(e) => { if (e.target.value) applyPreset(e.target.value); e.target.value = '' }}>
-          <option value="">preset…</option>
+          <option value="">Preset…</option>
           {Object.entries(PRESETS).map(([k, p]) => <option key={k} value={k}>{p.name}</option>)}
         </select>
 
-        <span style={{ color: 'var(--tx3)' }}>|</span>
-        <span style={{ color: 'var(--tx2)' }}>wall</span>
-        <select
-          value={`${project.canvas.w}x${project.canvas.h}`}
-          style={{ background: '#0f1113', border: '1px solid var(--line)', borderRadius: 4, padding: '3px 6px' }}
+        <select value={`${project.canvas.w}x${project.canvas.h}`}
           onChange={(e) => {
             const [w, h] = e.target.value.split('x').map(Number)
             useStore.getState().setCanvas({ w, h })
           }}>
-          <option value="4550x1000">4550×1000 (small wall)</option>
-          <option value="8750x1000">8750×1000 (long wall)</option>
-          <option value="1920x1080">1920×1080 (test)</option>
+          <option value="4550x1000">4550 × 1000 — small wall</option>
+          <option value="8750x1000">8750 × 1000 — long wall</option>
+          <option value="1920x1080">1920 × 1080 — test</option>
         </select>
 
         <span className="spacer" />
         <span className="status">{busy ? 'loading images…' : ui.status}</span>
 
-        <button className="btn sm" onClick={saveProject}>save</button>
-        <label className="btn sm" style={{ display: 'inline-block' }}>
-          open<input type="file" accept=".json" onChange={(e) => { if (e.target.files[0]) openProject(e.target.files[0]); e.target.value = '' }} />
+        <button className="btn sm" onClick={saveProject}>Save</button>
+        <label className="btn sm">
+          Open<input type="file" accept=".json"
+            onChange={(e) => { if (e.target.files[0]) openProject(e.target.files[0]); e.target.value = '' }} />
         </label>
-        <button className="btn sm" onClick={doStill} disabled={!!exp}>still PNG</button>
+        <button className="btn sm" onClick={doStill} disabled={!!exp}>PNG</button>
         <button className="btn pri" onClick={doExport} disabled={!!exp}>
           {exp ? `${exp.phase} ${exp.frame}/${exp.total}` : 'Export MP4'}
         </button>
       </div>
 
-      <LayersPanel onFiles={handleFiles} />
+      <LayersPanel
+        onFiles={handleFiles}
+        onRedepthAll={() => {
+          depthCache.clear()
+          for (const l of useStore.getState().project.layers) runDepth(l.id)
+        }}
+      />
       <Viewport engineRef={engineRef} onReady={() => setEngineEpoch((n) => n + 1)} />
-      <Inspector onRedepth={runDepth} />
+      <Inspector onRedepth={(id) => { depthCache.delete(id); runDepth(id) }} />
       <Timeline />
+      <HelpModal />
     </div>
   )
 }

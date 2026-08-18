@@ -36,6 +36,19 @@ varying vec2 vUv;
 void main(){ gl_FragColor = vec4(texture2D(uTex, vUv).rgb, 1.0); }
 `
 
+// Debug view: show the layer's depth map in place, using the placed image for coverage.
+const FRAG_DEPTHVIEW = /* glsl */ `
+precision highp float;
+uniform sampler2D uTex;
+uniform sampler2D uDepth;
+varying vec2 vUv;
+void main(){
+  float d = texture2D(uDepth, vUv).r;
+  float a = texture2D(uTex, vUv).a;
+  gl_FragColor = vec4(vec3(d), a);
+}
+`
+
 const BLEND = {
   normal: THREE.NormalBlending,
   add: THREE.AdditiveBlending,
@@ -89,6 +102,12 @@ export default class Engine {
       depthTest: false, depthWrite: false,
     })
     this.placeDepthMesh = new THREE.Mesh(this.quad, this.placeDepthMat)
+
+    this.depthViewMat = new THREE.ShaderMaterial({
+      vertexShader: VERT_QUAD, fragmentShader: FRAG_DEPTHVIEW,
+      uniforms: { uTex: { value: null }, uDepth: { value: null } },
+      transparent: true, depthTest: false, depthWrite: false,
+    })
   }
 
   // ---------------------------------------------------------------- resources
@@ -154,7 +173,9 @@ export default class Engine {
 
     const uniforms = this.baseUniforms()
     for (const [k, p] of Object.entries(def.params)) {
-      uniforms['p_' + k] = { value: typeof p.default === 'boolean' ? (p.default ? 1 : 0) : Number(p.default) || 0 }
+      uniforms['p_' + k] = p.type === 'color'
+        ? { value: new THREE.Vector3(...(p.default || [1, 1, 1])) }
+        : { value: typeof p.default === 'boolean' ? (p.default ? 1 : 0) : Number(p.default) || 0 }
     }
 
     let mat
@@ -189,7 +210,12 @@ export default class Engine {
       if (!u[key]) continue
       let v = params?.[k]
       if (v === undefined) v = p.default
-      u[key].value = typeof v === 'boolean' ? (v ? 1 : 0) : Number(v) || 0
+      if (p.type === 'color') {
+        const c = Array.isArray(v) ? v : [1, 1, 1]
+        u[key].value.set(c[0] ?? 1, c[1] ?? 1, c[2] ?? 1)
+      } else {
+        u[key].value = typeof v === 'boolean' ? (v ? 1 : 0) : Number(v) || 0
+      }
     }
   }
 
@@ -250,6 +276,17 @@ export default class Engine {
         dm.uCanvasPx.value.copy(pm.uCanvasPx.value)
         dm.uRot.value = pm.uRot.value
         this.drawMesh(this.placeDepthMesh)
+      }
+
+      // ---- depth inspection: show the depth map instead of the picture
+      if (opts.viewDepth) {
+        this.depthViewMat.uniforms.uTex.value = rtLayer.texture
+        this.depthViewMat.uniforms.uDepth.value = rtDepth.texture
+        this.blitMesh.material = this.depthViewMat
+        r.setRenderTarget(rtComp)
+        this.drawMesh(this.blitMesh)
+        this.blitMesh.material = this.blitMat
+        continue
       }
 
       // ---- effect chain (ping-pong between rtA/rtB, source is rtLayer)
@@ -313,7 +350,7 @@ export default class Engine {
     let gslot = 0
     const gpool = [rtA, rtB]
     const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: 0 }
-    for (const fx of project.globalEffects || []) {
+    for (const fx of opts.viewDepth ? [] : project.globalEffects || []) {
       if (!fx.enabled) continue
       const def = getEffect(fx.type)
       if (!def || def.kind === 'points') continue
@@ -381,5 +418,7 @@ export default class Engine {
 }
 
 function paramDecls(def) {
-  return Object.keys(def.params).map((k) => `uniform float p_${k};`).join('\n') + '\n'
+  return Object.entries(def.params)
+    .map(([k, p]) => `uniform ${p.type === 'color' ? 'vec3' : 'float'} p_${k};`)
+    .join('\n') + '\n'
 }

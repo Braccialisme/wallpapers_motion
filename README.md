@@ -70,7 +70,10 @@ void main(){
 }
 ```
 
-Each param `k` arrives in GLSL as `uniform float p_k`.
+Each param `k` arrives in GLSL as `uniform float p_k` — or `uniform vec3 p_k` for
+`type:'color'`, which gets a colour wheel in the UI and is stored as `[r,g,b]` 0..1.
+
+Param types: `float` `int` `bool` `select` (`options:[…]`) `color`.
 
 ### Available to every shader
 
@@ -109,6 +112,43 @@ See `src/effects/pointcloud.js`.
 | `pointcloud` | GPU point cloud that assembles from depth-ordered scatter into the photo |
 | `drift` | slow scroll |
 | `grade` | exposure / contrast / saturation / tint / vignette |
+
+---
+
+## Depth quality
+
+Monocular depth models run at a small fixed input size, so raw output is soft and its
+edges drift off the real object edges. Two controls in the left panel:
+
+* **Model** — `small` (50 MB, fast) · `base` (190 MB, clearly better structure) ·
+  `large` (640 MB, best). Downloaded once, then cached by the browser.
+  Start on `base` for anything you intend to show.
+* **Edge refine** — a guided filter that re-snaps the depth to the photo's own edges.
+  This is the single biggest quality win and costs milliseconds.
+  *Edge radius* = how far it looks; *Sharpness* = how hard it locks to edges
+  (lower is sharper, but can start pulling in texture detail).
+
+Press <kbd>D</kbd> to inspect the depth map itself — always judge depth by looking at it,
+not by looking at the effect on top of it.
+
+WebGPU is used when a real adapter exists, otherwise wasm. Depth survives HMR, engine
+recreation and project reloads within a session, so you never pay for the model twice.
+
+---
+
+## Keyboard
+
+| key | |
+|---|---|
+| <kbd>Space</kbd> | play / pause |
+| <kbd>←</kbd> <kbd>→</kbd> | step one frame (hold <kbd>⇧</kbd> for one second) |
+| <kbd>Home</kbd> <kbd>End</kbd> | start / end |
+| <kbd>D</kbd> | toggle depth view |
+| <kbd>L</kbd> | toggle loop |
+| <kbd>V</kbd> | show / hide selected layer |
+| <kbd>[</kbd> <kbd>]</kbd> | previous / next layer |
+| <kbd>⌫</kbd> | delete selected layer |
+| <kbd>?</kbd> | shortcut list |
 
 ---
 

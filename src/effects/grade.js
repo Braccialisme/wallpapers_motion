@@ -8,9 +8,7 @@ export default {
     contrast:   { type: 'float', min: 0, max: 2.5, step: 0.01, default: 1, label: 'Contrast' },
     saturation: { type: 'float', min: 0, max: 2, step: 0.01, default: 1, label: 'Saturation' },
     lift:       { type: 'float', min: -0.3, max: 0.3, step: 0.005, default: 0, label: 'Lift' },
-    tintR:      { type: 'float', min: 0.5, max: 1.5, step: 0.01, default: 1, label: 'Tint R' },
-    tintG:      { type: 'float', min: 0.5, max: 1.5, step: 0.01, default: 1, label: 'Tint G' },
-    tintB:      { type: 'float', min: 0.5, max: 1.5, step: 0.01, default: 1, label: 'Tint B' },
+    tint:       { type: 'color', default: [0.5, 0.5, 0.5], label: 'Tint (grey = neutral)' },
     vignette:   { type: 'float', min: 0, max: 1, step: 0.01, default: 0, label: 'Vignette' },
   },
   frag: /* glsl */ `
@@ -21,7 +19,7 @@ void main(){
   c *= pow(2.0, p_exposure);
   c = (c - 0.5) * p_contrast + 0.5 + p_lift;
   c = mix(vec3(luma(c)), c, p_saturation);
-  c *= vec3(p_tintR, p_tintG, p_tintB);
+  c *= p_tint * 2.0;   // 0.5 grey = neutral, so the wheel spans warm/cool either way
 
   vec2 q = (vUv - 0.5) * 2.0;
   c *= 1.0 - p_vignette * dot(q, q) * 0.35;

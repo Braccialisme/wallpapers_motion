@@ -32,7 +32,7 @@ export default function Viewport({ engineRef, onReady }) {
       const ph = Math.max(2, Math.round((pw * project.canvas.h) / project.canvas.w))
       const baked = resolveProject(project, ui.time)
       try {
-        engine.render(baked, ui.time, { width: pw, height: ph })
+        engine.render(baked, ui.time, { width: pw, height: ph, viewDepth: ui.viewDepth })
       } catch (e) {
         // keep the loop alive; a bad shader shouldn't kill the app
         console.error('[render]', e)
@@ -58,11 +58,15 @@ export default function Viewport({ engineRef, onReady }) {
         </div>
       </div>
       <div className="viewbar">
-        <span className="mono">canvas {project.canvas.w}×{project.canvas.h}</span>
-        <span className="mono">preview {Math.min(ui.previewWidth, project.canvas.w)}px</span>
+        <button className={'btn sm' + (ui.viewDepth ? ' on' : '')}
+          title="inspect depth maps (D)"
+          onClick={() => useStore.getState().setUI({ viewDepth: !ui.viewDepth })}>
+          {ui.viewDepth ? 'Depth view' : 'Colour view'}
+        </button>
+        <span className="mono">{project.canvas.w}×{project.canvas.h}</span>
         <span style={{ flex: 1 }} />
-        <span>preview quality</span>
-        <input type="range" min={600} max={3000} step={50} value={ui.previewWidth}
+        <span>preview {Math.min(ui.previewWidth, project.canvas.w)}px</span>
+        <input type="range" min={600} max={3000} step={50} value={ui.previewWidth} style={{ width: 130 }}
           onChange={(e) => useStore.getState().setUI({ previewWidth: Number(e.target.value) })} />
       </div>
     </div>

@@ -8,7 +8,10 @@ export const pathT = (layerId, prop) => `L:${layerId}:T:${prop}`
 export const pathE = (layerId, fxId, param) => `L:${layerId}:E:${fxId}:${param}`
 export const pathG = (fxId, param) => `G:E:${fxId}:${param}`
 
-function lerp(a, b, t) { return a + (b - a) * t }
+function lerp(a, b, t) {
+  if (Array.isArray(a) && Array.isArray(b)) return a.map((v, i) => v + ((b[i] ?? v) - v) * t)
+  return a + (b - a) * t
+}
 function ease(t) { return t * t * (3 - 2 * t) }
 
 export function evalKeys(keys, t) {
@@ -54,8 +57,12 @@ export const useStore = create((set, get) => ({
     selectedLayer: null, selectedEffect: null,
     status: '', exporting: null,
     previewWidth: 1600,
-    showEmpty: true,
+    viewDepth: false,
+    showHelp: false,
   },
+  // depth estimation settings (shared by every layer)
+  depth: { model: 'small', refine: true, radius: 8, eps: 0.0025 },
+  setDepth: (patch) => set((s) => ({ depth: { ...s.depth, ...patch } })),
 
   setUI: (patch) => set((s) => ({ ui: { ...s.ui, ...patch } })),
   setProject: (patch) => set((s) => ({ project: { ...s.project, ...patch } })),

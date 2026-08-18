@@ -1,88 +1,99 @@
 import * as THREE from 'three'
+import { guidedFilter, resamplePlane, luminancePlane, normalise } from './guided.js'
 
-// Depth Anything V2 in the browser (WebGPU, falls back to WASM).
-// Model weights are cached by the browser after the first download.
-const CANDIDATES = [
-  'onnx-community/depth-anything-v2-small',
-  'Xenova/depth-anything-small-hf',
-]
+// Depth Anything V2 in the browser. Weights are cached by the browser after first use.
+// Bigger model = notably better structure; the guided filter then snaps the result to
+// the photo's real edges, which is what makes depth feel "sharp" rather than blobby.
+export const MODELS = {
+  small: { id: 'onnx-community/depth-anything-v2-small', label: 'Small · fast', mb: 50 },
+  base:  { id: 'onnx-community/depth-anything-v2-base',  label: 'Base · better', mb: 190 },
+  large: { id: 'onnx-community/depth-anything-v2-large', label: 'Large · best', mb: 640 },
+}
+const FALLBACK = 'Xenova/depth-anything-small-hf'
 
-let pipePromise = null
+const pipes = new Map()   // modelKey -> Promise<pipeline>
 let usedModel = null
-
 export function depthModelName() { return usedModel }
 
-// Only offer webgpu if an adapter really exists. navigator.gpu can be present while
-// requestAdapter() returns null (virtual displays, remote sessions) — and attempting
-// webgpu in that state poisons transformers.js' model cache, so the wasm retry for the
-// same model fails too. Probe first, then pick.
-async function availableDevices() {
-  try {
-    if (navigator.gpu && (await navigator.gpu.requestAdapter())) return ['webgpu', 'wasm']
-  } catch { /* fall through to wasm */ }
-  return ['wasm']
+// navigator.gpu can exist while requestAdapter() returns null (virtual displays, remote
+// sessions). Attempting webgpu in that state poisons transformers.js' model cache so the
+// wasm retry for the same model fails too — so probe for a real adapter first.
+let devicesPromise = null
+function availableDevices() {
+  if (!devicesPromise) devicesPromise = (async () => {
+    try { if (navigator.gpu && (await navigator.gpu.requestAdapter())) return ['webgpu', 'wasm'] }
+    catch { /* fall through */ }
+    return ['wasm']
+  })()
+  return devicesPromise
 }
 
-async function getPipe(onStatus) {
-  if (pipePromise) return pipePromise
-  pipePromise = (async () => {
+async function getPipe(modelKey, onStatus) {
+  if (pipes.has(modelKey)) return pipes.get(modelKey)
+  const p = (async () => {
     const { pipeline, env } = await import('@huggingface/transformers')
     env.allowLocalModels = false
     const devices = await availableDevices()
+    const ids = [MODELS[modelKey]?.id || MODELS.small.id, FALLBACK]
     let lastErr
-    for (const model of CANDIDATES) {
+    for (const id of ids) {
       for (const device of devices) {
         try {
-          onStatus?.(`loading ${model} (${device})…`)
-          const p = await pipeline('depth-estimation', model, {
+          onStatus?.(`loading ${id.split('/').pop()} (${device})…`)
+          const pipe = await pipeline('depth-estimation', id, {
             device,
             progress_callback: (d) => {
               if (d.status === 'progress' && d.progress != null)
-                onStatus?.(`${model} ${Math.round(d.progress)}%`)
+                onStatus?.(`downloading ${id.split('/').pop()} ${Math.round(d.progress)}%`)
             },
           })
-          usedModel = `${model} · ${device}`
-          onStatus?.(`ready (${usedModel})`)
-          return p
+          usedModel = `${id.split('/').pop()} · ${device}`
+          return pipe
         } catch (e) { lastErr = e }
       }
     }
-    pipePromise = null
+    pipes.delete(modelKey)
     throw lastErr || new Error('no depth model could be loaded')
   })()
-  return pipePromise
+  pipes.set(modelKey, p)
+  return p
 }
 
 /**
- * Estimate depth for an image URL.
+ * Estimate depth and refine it against the photo's edges.
  * @returns {Promise<{data:Float32Array,width:number,height:number}>} 0=far, 1=near
  */
-export async function estimateDepth(url, onStatus) {
-  const pipe = await getPipe(onStatus)
+export async function estimateDepth(url, img, opts = {}, onStatus) {
+  const { model = 'small', refine = true, radius = 8, eps = 0.0025, maxSize = 1400 } = opts
+  const pipe = await getPipe(model, onStatus)
   onStatus?.('estimating depth…')
+
   const out = await pipe(url)
   const t = out.predicted_depth ?? out.depth
-  const width = t.dims?.at(-1) ?? t.width
-  const height = t.dims?.at(-2) ?? t.height
-  const raw = t.data
+  const dw = t.dims?.at(-1) ?? t.width
+  const dh = t.dims?.at(-2) ?? t.height
+  let data = normalise(Float32Array.from(t.data))
 
-  let min = Infinity, max = -Infinity
-  for (let i = 0; i < raw.length; i++) {
-    const v = raw[i]
-    if (v < min) min = v
-    if (v > max) max = v
+  if (refine && img) {
+    // work at the photo's aspect, capped so the filter stays instant
+    const ar = img.naturalWidth / img.naturalHeight
+    const w = Math.max(64, Math.min(maxSize, img.naturalWidth))
+    const h = Math.max(64, Math.round(w / ar))
+    onStatus?.('refining edges…')
+    const guide = luminancePlane(img, w, h)
+    const up = resamplePlane(data, dw, dh, w, h)
+    const r = Math.max(2, Math.round((radius * w) / 1000))
+    data = normalise(guidedFilter(guide, up, w, h, r, eps))
+    onStatus?.('depth ready')
+    return { data, width: w, height: h }
   }
-  const range = max - min || 1
-  const data = new Float32Array(raw.length)
-  for (let i = 0; i < raw.length; i++) data[i] = (raw[i] - min) / range
 
   onStatus?.('depth ready')
-  return { data, width, height }
+  return { data, width: dw, height: dh }
 }
 
-/** Float depth -> THREE texture (R32F). flipY handled to match image placement. */
+/** Float depth -> R32F texture, flipped to match a flipY colour texture. */
 export function depthTexture({ data, width, height }) {
-  // flip rows so it matches a flipY=true colour texture
   const flipped = new Float32Array(data.length)
   for (let y = 0; y < height; y++) {
     const s = (height - 1 - y) * width
@@ -96,31 +107,16 @@ export function depthTexture({ data, width, height }) {
   return tex
 }
 
-/** Fallback / manual import: build depth from a greyscale image element. */
+/** Depth from an imported greyscale image (e.g. real photogrammetry depth). */
 export function depthFromImage(img) {
-  const cv = document.createElement('canvas')
-  cv.width = img.naturalWidth; cv.height = img.naturalHeight
-  const ctx = cv.getContext('2d')
-  ctx.drawImage(img, 0, 0)
-  const { data: px } = ctx.getImageData(0, 0, cv.width, cv.height)
-  const data = new Float32Array(cv.width * cv.height)
-  for (let i = 0; i < data.length; i++) data[i] = px[i * 4] / 255
-  return { data, width: cv.width, height: cv.height }
+  const w = img.naturalWidth, h = img.naturalHeight
+  return { data: luminancePlane(img, w, h), width: w, height: h }
 }
 
-/** Cheap luminance depth so a layer is usable before the model finishes. */
+/** Instant stand-in so a layer is usable before the model finishes. */
 export function depthFromLuminance(img) {
-  const maxW = 512
-  const s = Math.min(1, maxW / img.naturalWidth)
+  const s = Math.min(1, 512 / img.naturalWidth)
   const w = Math.max(2, Math.round(img.naturalWidth * s))
   const h = Math.max(2, Math.round(img.naturalHeight * s))
-  const cv = document.createElement('canvas')
-  cv.width = w; cv.height = h
-  const ctx = cv.getContext('2d')
-  ctx.drawImage(img, 0, 0, w, h)
-  const { data: px } = ctx.getImageData(0, 0, w, h)
-  const data = new Float32Array(w * h)
-  for (let i = 0; i < data.length; i++)
-    data[i] = (0.2126 * px[i * 4] + 0.7152 * px[i * 4 + 1] + 0.0722 * px[i * 4 + 2]) / 255
-  return { data, width: w, height: h }
+  return { data: luminancePlane(img, w, h), width: w, height: h }
 }
