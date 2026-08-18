@@ -1,0 +1,8 @@
+node_modules/
+dist/
+exports/
+.vite/
+*.local
+.DS_Store
+Thumbs.db
+*.shimmer.json
