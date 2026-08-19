@@ -7,6 +7,16 @@
 //
 // renderFrame(t, w, h) -> Promise<Blob>   (caller bakes keyframes for time t)
 
+
+// Yield to the browser between frames. setTimeout is clamped to ~1s in background
+// tabs, which would make a long export crawl if the user switches away; a
+// MessageChannel round-trip is a real macrotask that is not throttled.
+const yieldToBrowser = () => new Promise((resolve) => {
+  const ch = new MessageChannel()
+  ch.port1.onmessage = () => { ch.port1.close(); resolve() }
+  ch.port2.postMessage(0)
+})
+
 async function hasDevServer() {
   try {
     const r = await fetch('/api/export/ping', { method: 'POST' })
@@ -30,7 +40,7 @@ async function exportViaServer(renderFrame, { w, h, fps, duration, name }, onPro
     const res = await fetch('/api/export/frame', { method: 'POST', body: blob })
     if (!res.ok) throw new Error('frame upload failed at ' + i)
     onProgress?.({ frame: i + 1, total, phase: 'render' })
-    if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0))
+    if (i % 4 === 0) await yieldToBrowser()
   }
   onProgress?.({ frame: total, total, phase: 'encoding' })
   const fin = await fetch('/api/export/finish', { method: 'POST' }).then((r) => r.json())
@@ -80,8 +90,8 @@ async function exportViaWebCodecs(renderFrame, { w, h, fps, duration, name }, on
     frame.close(); bitmap.close()
     onProgress?.({ frame: i + 1, total, phase: 'render' })
     // don't let the encoder queue run away with memory
-    if (encoder.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 8))
-    else if (i % 4 === 0) await new Promise((r) => setTimeout(r, 0))
+    while (encoder.encodeQueueSize > 8) await yieldToBrowser()
+    if (i % 4 === 0) await yieldToBrowser()
   }
 
   onProgress?.({ frame: total, total, phase: 'encoding' })

@@ -79,6 +79,9 @@ export default function GuideModal() {
           Running locally it hands the frames to ffmpeg and writes into <B>exports/</B>;
           in a hosted browser it encodes in-page instead. <B>PNG</B> gives you a single
           full-resolution still at the playhead.
+          <br /><br />
+          An export keeps running if you switch tabs. The live preview does not — browsers
+          stop animating hidden tabs — so leave the tab visible if you want to watch it.
         </Section>
 
         <Section title="Saving">
