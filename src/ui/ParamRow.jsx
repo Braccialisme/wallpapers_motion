@@ -1,6 +1,7 @@
 import React from 'react'
 import { useStore, evalKeys } from '../store.js'
 import ColorWheel from './ColorWheel.jsx'
+import NumberField from './NumberField.jsx'
 
 export default function ParamRow({ def, pkey, value, onChange, kfPath }) {
   const { project, ui } = useStore()
@@ -87,7 +88,9 @@ export default function ParamRow({ def, pkey, value, onChange, kfPath }) {
       <div className="prm-top">
         <KeyBtn />
         <span className="prm-lbl">{def.label || pkey}</span>
-        <span className="prm-val">{Number(shown).toFixed(digits)}</span>
+        <NumberField value={Number(Number(shown).toFixed(digits))} min={min} max={max} step={step}
+          style={{ width: 66, textAlign: 'right', padding: '2px 8px', borderRadius: 'var(--pill)', fontSize: 11.5 }}
+          onCommit={(n) => set(n)} />
         {animated && <button className="btn sm" onClick={() => clearKeys(kfPath)}>clear</button>}
       </div>
       <input type="range" min={min} max={max} step={step} value={Number(shown)}

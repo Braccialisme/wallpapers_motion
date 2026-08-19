@@ -69,6 +69,11 @@ function CursorCard() {
           onChange={(e) => setCursor({ softness: Number(e.target.value) })} />
       </div>
       <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Falloff (edge fade)</span><span className="prm-val">{(cursor?.falloff ?? 0.6).toFixed(2)}</span></div>
+        <input type="range" min={0} max={3} step={0.05} value={cursor?.falloff ?? 0.6}
+          onChange={(e) => setCursor({ falloff: Number(e.target.value) })} />
+      </div>
+      <div className="prm">
         <div className="prm-top"><span className="prm-lbl">Brush presets</span></div>
         <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
           {brushes.map((b) => (

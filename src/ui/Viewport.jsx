@@ -55,6 +55,7 @@ export default function Viewport({ engineRef, onReady }) {
   const startPan = (e) => {
     if (ui.cursorEdit && e.button === 0) return   // left is for the gizmo in edit mode
     if (e.button !== 0 && e.button !== 1) return
+    if (e.button === 1) e.preventDefault()        // stop the browser middle-click autoscroll
     panRef.current = { sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y }
   }
   useEffect(() => {
@@ -66,7 +67,10 @@ export default function Viewport({ engineRef, onReady }) {
     const up = () => { panRef.current = null }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
-    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointercancel', up)
+    window.addEventListener('blur', up)
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up); window.removeEventListener('blur', up) }
   }, [])
 
   // ---- cursor gizmo ----
@@ -78,7 +82,7 @@ export default function Viewport({ engineRef, onReady }) {
              y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }
   }
   const onCanvasDown = (e) => {
-    if (!useStore.getState().ui.cursorEdit || e.button !== 0) return
+    if (!useStore.getState().ui.cursorEdit || e.button !== 0 || e.detail > 1) return
     e.stopPropagation()
     const p = toCanvas(e)
     addCursorPoint(useStore.getState().ui.time, p.x, p.y)   // drop a point at the live playhead
@@ -114,30 +118,37 @@ export default function Viewport({ engineRef, onReady }) {
           <canvas ref={canvasRef} className="view" style={{ width: '100%', aspectRatio: aspect }}
             onPointerDown={onCanvasDown} />
 
-          {cur?.enabled && pts.length > 0 && (
-            <svg viewBox="0 0 100 100" preserveAspectRatio="none"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
-                       pointerEvents: 'none' }}>
-              {pts.length > 1 && (
-                <polyline fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="0.4" strokeDasharray="1.2 1"
-                  vectorEffect="non-scaling-stroke"
-                  points={pts.map((p) => `${p.x * 100},${p.y * 100}`).join(' ')} />
+          {cur?.enabled && pts.length > 0 && (() => {
+            const AX = 100 * aspect            // square units so handles stay round
+            const dur = project.duration || 1
+            const t0 = pts[0].t, t1 = pts[pts.length - 1].t
+            const curve = []
+            if (t1 > t0) for (let i = 0; i <= 64; i++) {
+              const p = cursorAt(cur, t0 + ((t1 - t0) * i) / 64)
+              if (p) curve.push(`${p.x * AX},${p.y * 100}`)
+            }
+            return (
+            <svg viewBox={`0 0 ${AX} 100`} preserveAspectRatio="none"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+              {curve.length > 1 && (
+                <polyline fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="1" strokeDasharray="4 3"
+                  vectorEffect="non-scaling-stroke" points={curve.join(' ')} />
               )}
               {pts.map((p, i) => (
-                <circle key={i} cx={p.x * 100} cy={p.y * 100} r="1.1" vectorEffect="non-scaling-stroke"
-                  fill={Math.abs(p.t - ui.time) < 0.05 ? '#fff' : 'rgba(255,255,255,.35)'}
-                  stroke="#000" strokeWidth="0.3"
+                <circle key={i} cx={p.x * AX} cy={p.y * 100} r="1.4" vectorEffect="non-scaling-stroke"
+                  fill={Math.abs(p.t - ui.time) < 0.06 ? '#fff' : 'rgba(255,255,255,.4)'}
+                  stroke="#000" strokeWidth="0.5"
                   style={{ cursor: 'grab', pointerEvents: ui.cursorEdit ? 'auto' : 'none' }}
                   onPointerDown={onHandleDown(i)}
                   onDoubleClick={(e) => { e.stopPropagation(); removeCursorPoint(i) }} />
               ))}
               {pos && (
-                <circle cx={pos.x * 100} cy={pos.y * 100} r={(cur.spread || 0.16) * 100}
-                  fill="rgba(255,255,255,.06)" stroke="#7fd1c1" strokeWidth="0.5"
+                <circle cx={pos.x * AX} cy={pos.y * 100} r={(cur.spread || 0.16) * 100}
+                  fill="rgba(127,209,193,.07)" stroke="#7fd1c1" strokeWidth="0.8"
                   vectorEffect="non-scaling-stroke" pointerEvents="none" />
               )}
-            </svg>
-          )}
+            </svg>)
+          })()}
         </div>
       </div>
 

@@ -3,7 +3,7 @@ import { defaultParams, getEffect } from './effects/index.js'
 
 const uid = (p = 'id') => `${p}_${Math.random().toString(36).slice(2, 9)}`
 
-const DEFAULT_CURSOR = { enabled: false, shape: 0, spread: 0.16, softness: 0.5, points: [] }
+const DEFAULT_CURSOR = { enabled: false, shape: 0, spread: 0.16, softness: 0.5, falloff: 0.6, points: [] }
 
 // backfill fields added after a project was saved, so old autosaves keep working
 // drop keyframe tracks whose layer / effect no longer exists
@@ -190,6 +190,34 @@ export const useStore = create((set, get) => ({
     if (target === 'global') return { project: { ...s.project, globalEffects: rm(s.project.globalEffects), keyframes: kf } }
     return { project: { ...s.project, keyframes: kf, layers: s.project.layers.map((l) => (l.id === target ? { ...l, effects: rm(l.effects) } : l)) } }
   }),
+  // copy a layer's whole effect chain (settings + keyframes) to paste on another layer
+  copyChain: (layerId) => set((s) => {
+    const layer = s.project.layers.find((l) => l.id === layerId)
+    if (!layer) return {}
+    const effects = layer.effects.map((f) => {
+      const keys = {}
+      for (const param of Object.keys(f.params)) {
+        const k = s.project.keyframes[pathE(layerId, f.id, param)]
+        if (k) keys[param] = k.map((x) => ({ ...x }))
+      }
+      return { type: f.type, enabled: f.enabled, params: { ...f.params }, keys }
+    })
+    return { ui: { ...s.ui, fxClipboard: { effects } } }
+  }),
+  pasteChain: (layerId) => set((s) => {
+    const clip = s.ui.fxClipboard
+    if (!clip) return {}
+    const keyframes = { ...s.project.keyframes }
+    const added = clip.effects.map((e) => {
+      const id = uid('fx')
+      for (const [param, keys] of Object.entries(e.keys || {}))
+        keyframes[pathE(layerId, id, param)] = keys.map((k) => ({ ...k }))
+      return { id, type: e.type, enabled: e.enabled, params: { ...e.params } }
+    })
+    return { project: { ...s.project, keyframes,
+      layers: s.project.layers.map((l) => (l.id === layerId ? { ...l, effects: [...l.effects, ...added] } : l)) } }
+  }),
+
   pruneOrphanKeys: () => set((s) => ({ project: { ...s.project, keyframes: pruneKeyframes(s.project) } })),
   moveEffect: (target, fxId, dir) => set((s) => {
     const mv = (arr) => {
@@ -329,7 +357,7 @@ export function resolveProject(project, t) {
   return { ...project, layers, globalEffects }
 }
 
-/** Interpolate the cursor path to a position at time t, or null if no path. */
+/** Interpolate the cursor path at time t (smooth Catmull-Rom), or null if no path. */
 export function cursorAt(cursor, t) {
   const pts = cursor?.points || []
   if (pts.length === 0) return null
@@ -340,7 +368,12 @@ export function cursorAt(cursor, t) {
   for (let i = 0; i < pts.length - 1; i++) {
     if (t >= pts[i].t && t <= pts[i + 1].t) {
       const f = (t - pts[i].t) / ((pts[i + 1].t - pts[i].t) || 1)
-      return { x: lerp(pts[i].x, pts[i + 1].x, f), y: lerp(pts[i].y, pts[i + 1].y, f) }
+      const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || pts[i + 1]
+      const cr = (a, b, c, d) => {
+        const f2 = f * f, f3 = f2 * f
+        return 0.5 * ((2 * b) + (-a + c) * f + (2 * a - 5 * b + 4 * c - d) * f2 + (-a + 3 * b - 3 * c + d) * f3)
+      }
+      return { x: cr(p0.x, p1.x, p2.x, p3.x), y: cr(p0.y, p1.y, p2.y, p3.y) }
     }
   }
   return { x: last.x, y: last.y }

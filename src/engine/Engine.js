@@ -159,6 +159,7 @@ export default class Engine {
     const rad = Math.max(0.01, cur.spread)
     const shapeScale = cur.shape === 2 ? 0.45 : 1      // dot is tighter
     const r = rad * shapeScale
+    const fall = cur.falloff ?? 0.6
 
     const t0 = pts[0].t, t1 = pts[pts.length - 1].t
     const N = 700
@@ -176,9 +177,12 @@ export default class Engine {
         for (let px = x0; px <= x1; px++) {
           const ux = (px + 0.5) / TW
           const dx = (ux - cxp) * aspect, dy = uy - cyp
-          if (dx * dx + dy * dy <= r * r) {
+          const dd = dx * dx + dy * dy
+          if (dd <= r * r) {
+            // falloff: centre reveals at t, edge a little later, so the brush edge feathers
+            const tt = t + fall * Math.sqrt(dd) / r
             const i = py * TW + px
-            if (t < buf[i]) buf[i] = t
+            if (tt < buf[i]) buf[i] = tt
           }
         }
       }

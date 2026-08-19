@@ -14,6 +14,9 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
   const moveLayer = useStore((s) => s.moveLayer)
   const duplicateLayer = useStore((s) => s.duplicateLayer)
   const updateLayer = useStore((s) => s.updateLayer)
+  const copyChain = useStore((s) => s.copyChain)
+  const pasteChain = useStore((s) => s.pasteChain)
+  const hasClip = !!ui.fxClipboard
   const fileRef = useRef()
   const [hot, setHot] = useState(false)
 
@@ -57,12 +60,18 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
         ))}
 
         {sel && (
+          <>
           <div className="row" style={{ marginTop: 10 }}>
             <button className="btn sm grow" title="bring forward" onClick={() => moveLayer(sel, 1)}>↑</button>
             <button className="btn sm grow" title="send back" onClick={() => moveLayer(sel, -1)}>↓</button>
-            <button className="btn sm grow" onClick={() => duplicateLayer(sel)}>copy</button>
+            <button className="btn sm grow" title="duplicate layer" onClick={() => duplicateLayer(sel)}>dup</button>
             <button className="btn sm grow" onClick={() => removeLayer(sel)}>del</button>
           </div>
+          <div className="row">
+            <button className="btn sm grow" title="copy this layer's effect chain + keyframes" onClick={() => copyChain(sel)}>copy FX</button>
+            <button className="btn sm grow" title="paste the copied effect chain onto this layer" disabled={!hasClip} onClick={() => pasteChain(sel)}>paste FX</button>
+          </div>
+          </>
         )}
       </div>
 

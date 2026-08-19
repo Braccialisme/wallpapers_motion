@@ -29,7 +29,7 @@ const loadImage = (src) => new Promise((res, rej) => {
 
 const makeTexture = (img) => {
   const tex = new THREE.Texture(img)
-  tex.colorSpace = THREE.SRGBColorSpace
+  tex.colorSpace = THREE.NoColorSpace   // raw passthrough: our pipeline is sRGB end-to-end, no hardware decode
   tex.minFilter = THREE.LinearFilter
   tex.magFilter = THREE.LinearFilter
   tex.needsUpdate = true
