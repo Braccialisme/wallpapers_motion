@@ -29,7 +29,6 @@ export const PRESETS = {
       st.setParam(id, rev, 'scatter', 0.6)
       st.setParam(id, rev, 'softness', 0.12)
       const emb = st.addEffect(id, 'emboss')
-      st.setParam(id, emb, 'ghost', 1.0)
       // reveal across the whole timeline
       st.clearKeys(`L:${id}:E:${rev}:progress`)
       st.addKey(`L:${id}:E:${rev}:progress`, 0, 0)
@@ -49,7 +48,6 @@ export const PRESETS = {
       st.setParam(id, rev, 'scatter', 0.45)
       st.setParam(id, rev, 'softness', 0.06)
       const emb = st.addEffect(id, 'emboss')
-      st.setParam(id, emb, 'ghost', 1.0)
       st.clearKeys(`L:${id}:E:${rev}:progress`)
       st.addKey(`L:${id}:E:${rev}:progress`, 0, 0)
       st.addKey(`L:${id}:E:${rev}:progress`, st.project.duration * 0.9, 1.15)
@@ -110,7 +108,6 @@ export const PRESETS = {
         st.setParam(layer.id, rev, 'softness', 0.12)
         st.setParam(layer.id, rev, 'travelDur', 3)
         const emb = st.addEffect(layer.id, 'emboss')
-        st.setParam(layer.id, emb, 'ghost', 1.0)
       }
       // a straight left-to-right sweep across the whole duration, mid-height
       const dur = st.project.duration

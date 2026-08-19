@@ -5,8 +5,7 @@ export default {
   scope: 'layer',
   params: {
     tint:     { type: 'color', default: [0.93, 0.89, 0.82], label: 'Un-revealed colour' },
-    ghost:    { type: 'float', min: 0, max: 1, step: 0.01, default: 1.0, label: 'Colour vs image' },
-    relief:   { type: 'float', min: 0, max: 1, step: 0.01, default: 0.5, label: 'Deboss depth' },
+    emboss:   { type: 'float', min: 0, max: 1, step: 0.01, default: 0.35, label: 'Deboss depth' },
     lightAng: { type: 'float', min: 0, max: 6.283, step: 0.01, default: 2.4, label: 'Light angle' },
     spread:   { type: 'float', min: 0.5, max: 6, step: 0.1, default: 1.6, label: 'Sample spread' },
   },
@@ -20,15 +19,14 @@ void main(){
   vec2 L = vec2(cos(p_lightAng), sin(p_lightAng));
   float shade = dot(normalize(vec3(-g * 40.0, 1.0)), normalize(vec3(L, 0.75)));
 
-  // the chosen colour is the BASE; relief only adds a gentle light/dark deboss on top,
-  // so the un-revealed area stays the colour you picked (not dragged toward grey/black)
-  vec3 ghostCol = clamp(p_tint + (shade - 0.62) * p_relief * 0.35, 0.0, 1.0);
+  // the un-revealed area IS the colour you pick. Deboss only adds a gentle groove/ridge
+  // on top (subtle, so white stays white). Set Deboss depth to 0 for a flat colour.
+  vec3 ghostCol = clamp(p_tint + (shade - 0.62) * p_emboss * 0.4, 0.0, 1.0);
 
   // coverage = the image footprint; paint only inside it, and OPAQUE, so stacked layers
-  // and the paper below never bleed through (that was the muddy opacity)
+  // and the paper below never bleed through
   float cov = texture2D(uCover, vUv).a;
-  vec3 hidden = mix(src.rgb, ghostCol, p_ghost);      // 1 = pure colour, 0 = show the image faded
-  vec3 col = mix(hidden, src.rgb, clamp(src.a, 0.0, 1.0));
+  vec3 col = mix(ghostCol, src.rgb, clamp(src.a, 0.0, 1.0));   // hidden = colour, revealed = image
   gl_FragColor = vec4(col, cov);
 }
 `,
