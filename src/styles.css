@@ -150,6 +150,7 @@ canvas.view{display:block;width:100%;height:auto;background:#000}
 .kf{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:var(--accent);
   border-radius:2px;transform:rotate(45deg);transition:.15s var(--ease)}
 .kf:hover{box-shadow:0 0 0 5px var(--accent-glow)}
+.kf.sel{box-shadow:0 0 0 2px #7fd1c1,0 0 8px rgba(127,209,193,.7);background:#7fd1c1}
 .play{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent);border-radius:2px;
   pointer-events:none;box-shadow:0 0 8px rgba(255,255,255,.5)}
 

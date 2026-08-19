@@ -6,13 +6,31 @@ const uid = (p = 'id') => `${p}_${Math.random().toString(36).slice(2, 9)}`
 const DEFAULT_CURSOR = { enabled: false, shape: 0, spread: 0.16, softness: 0.5, points: [] }
 
 // backfill fields added after a project was saved, so old autosaves keep working
+// drop keyframe tracks whose layer / effect no longer exists
+export function pruneKeyframes(project) {
+  const kf = { ...(project.keyframes || {}) }
+  for (const path of Object.keys(kf)) {
+    const p = path.split(':')
+    if (p[0] === 'G') {
+      if (!project.globalEffects.find((f) => f.id === p[2])) delete kf[path]
+    } else {
+      const layer = project.layers.find((l) => l.id === p[1])
+      if (!layer) { delete kf[path]; continue }
+      if (p[2] === 'E' && !layer.effects.find((f) => f.id === p[3])) delete kf[path]
+    }
+  }
+  return kf
+}
+
 function migrate(p) {
-  return {
+  const proj = {
     duration: 20, fps: 24, globalEffects: [], keyframes: {},
     ...p,
     canvas: { w: 4550, h: 1000, ...(p.canvas || {}) },
     cursor: { ...DEFAULT_CURSOR, ...(p.cursor || {}) },
   }
+  proj.keyframes = pruneKeyframes(proj)
+  return proj
 }
 
 // keyframe path helpers -------------------------------------------------------
@@ -81,6 +99,7 @@ export const useStore = create((set, get) => ({
     showHelp: false,
     showGuide: false,
     cursorEdit: false,
+    selectedKey: null,
   },
   // depth estimation settings (shared by every layer)
   depth: { model: 'small', source: 'relief', refine: true, radius: 8, eps: 0.02,
@@ -112,10 +131,14 @@ export const useStore = create((set, get) => ({
       layers: s.project.layers.map((l) => (l.id === id ? { ...l, transform: { ...l.transform, ...patch } } : l)),
     },
   })),
-  removeLayer: (id) => set((s) => ({
-    project: { ...s.project, layers: s.project.layers.filter((l) => l.id !== id) },
-    ui: { ...s.ui, selectedLayer: s.ui.selectedLayer === id ? null : s.ui.selectedLayer },
-  })),
+  removeLayer: (id) => set((s) => {
+    const kf = { ...s.project.keyframes }
+    Object.keys(kf).forEach((p) => { if (p.startsWith(`L:${id}:`)) delete kf[p] })
+    return {
+      project: { ...s.project, layers: s.project.layers.filter((l) => l.id !== id), keyframes: kf },
+      ui: { ...s.ui, selectedLayer: s.ui.selectedLayer === id ? null : s.ui.selectedLayer },
+    }
+  }),
   moveLayer: (id, dir) => set((s) => {
     const ls = [...s.project.layers]
     const i = ls.findIndex((l) => l.id === id)
@@ -162,9 +185,12 @@ export const useStore = create((set, get) => ({
   }),
   removeEffect: (target, fxId) => set((s) => {
     const rm = (arr) => arr.filter((f) => f.id !== fxId)
-    if (target === 'global') return { project: { ...s.project, globalEffects: rm(s.project.globalEffects) } }
-    return { project: { ...s.project, layers: s.project.layers.map((l) => (l.id === target ? { ...l, effects: rm(l.effects) } : l)) } }
+    const kf = { ...s.project.keyframes }
+    Object.keys(kf).forEach((p) => { if (p.includes(`:E:${fxId}:`)) delete kf[p] })
+    if (target === 'global') return { project: { ...s.project, globalEffects: rm(s.project.globalEffects), keyframes: kf } }
+    return { project: { ...s.project, keyframes: kf, layers: s.project.layers.map((l) => (l.id === target ? { ...l, effects: rm(l.effects) } : l)) } }
   }),
+  pruneOrphanKeys: () => set((s) => ({ project: { ...s.project, keyframes: pruneKeyframes(s.project) } })),
   moveEffect: (target, fxId, dir) => set((s) => {
     const mv = (arr) => {
       const a = [...arr]; const i = a.findIndex((f) => f.id === fxId); const j = i + dir
@@ -228,8 +254,46 @@ export const useStore = create((set, get) => ({
     ui: { ...get().ui, time: 0, playing: false, selectedLayer: null, cursorEdit: false },
   })),
 
-    loadProject: (p) => set(() => ({ project: migrate(p), ui: { ...get().ui, time: 0, selectedLayer: p.layers[0]?.id ?? null } })),
+    undo: () => { history.undo(get, set) },
+  redo: () => { history.redo(get, set) },
+
+  loadProject: (p) => set(() => ({ project: migrate(p), ui: { ...get().ui, time: 0, selectedLayer: p.layers[0]?.id ?? null } })),
 }))
+
+// ------------------------------------------------------------------- undo/redo
+// Snapshot the project before a change. Rapid changes within one gesture (a slider
+// drag) coalesce into a single history step so one Ctrl+Z undoes the whole gesture.
+const history = {
+  past: [], future: [], last: 0, applying: false,
+  record(prevProject) {
+    if (this.applying) return
+    const now = Date.now()
+    if (now - this.last < 500 && this.past.length) return   // same gesture, skip
+    this.past.push(prevProject)
+    if (this.past.length > 120) this.past.shift()
+    this.future = []
+    this.last = now
+  },
+  undo(get, set) {
+    if (!this.past.length) return
+    this.applying = true
+    this.future.push(get().project)
+    set({ project: this.past.pop() })
+    this.applying = false
+    this.last = 0
+  },
+  redo(get, set) {
+    if (!this.future.length) return
+    this.applying = true
+    this.past.push(get().project)
+    set({ project: this.future.pop() })
+    this.applying = false
+    this.last = 0
+  },
+}
+useStore.subscribe((s, prev) => {
+  if (s.project !== prev.project) history.record(prev.project)
+})
 
 if (import.meta.env.DEV) window.__store = useStore   // handy in the console
 

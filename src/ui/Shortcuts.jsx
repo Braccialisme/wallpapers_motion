@@ -10,7 +10,9 @@ export const KEYS = [
   ['L', 'toggle loop'],
   ['V', 'show / hide selected layer'],
   ['[ ]', 'select previous / next layer'],
-  ['⌫', 'delete selected layer'],
+  ['⌫', 'delete selected keyframe'],
+  ['⌘/Ctrl Z', 'undo'],
+  ['⌘/Ctrl ⇧ Z', 'redo'],
   ['?', 'this list'],
 ]
 
@@ -33,6 +35,13 @@ export function useShortcuts() {
           (el.tagName === 'INPUT' && el.type === 'range'))) el.blur()
 
       const s = useStore.getState()
+      // undo / redo first
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        if (e.shiftKey) s.redo(); else s.undo()
+        e.preventDefault(); return
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) { s.redo(); e.preventDefault(); return }
+
       const { project, ui } = s
       const frame = 1 / (project.fps || 24)
       const clamp = (t) => Math.max(0, Math.min(project.duration, t))
@@ -60,7 +69,12 @@ export function useShortcuts() {
           break
         }
         case 'Backspace': case 'Delete':
-          if (ui.selectedLayer) { s.removeLayer(ui.selectedLayer); e.preventDefault() }
+          // delete the selected KEYFRAME — never the image
+          if (ui.selectedKey) {
+            s.removeKey(ui.selectedKey.path, ui.selectedKey.t)
+            s.setUI({ selectedKey: null })
+            e.preventDefault()
+          }
           break
         case '?': s.setUI({ showHelp: true }); break
         case 'Escape': s.setUI({ showHelp: false }); break
