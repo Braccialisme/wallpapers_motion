@@ -13,7 +13,7 @@ export default {
     // speed: constant velocity
     speedX: { type: 'float', min: -400, max: 400, step: 0.5, default: 12, label: 'Speed X px/s' },
     speedY: { type: 'float', min: -400, max: 400, step: 0.5, default: 0, label: 'Speed Y px/s' },
-    wrap:   { type: 'bool', default: true, label: 'Wrap around' },
+    wrap:   { type: 'bool', default: false, label: 'Wrap around' },
   },
   frag: /* glsl */ `
 void main(){

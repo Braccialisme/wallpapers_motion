@@ -49,13 +49,13 @@ export default function Viewport({ engineRef, onReady }) {
 
   // keep the scaled canvas overlapping the viewport so a pan/zoom can never lose it
   const clampView = (v) => {
-    let z = Math.min(12, Math.max(1, v.z))
-    if (!isFinite(z)) z = 1
+    let z = isFinite(v.z) ? v.z : 1
+    z = Math.min(12, Math.max(0.25, z))          // zoom out to see the frame as an artboard
     const r = wrapRef.current?.getBoundingClientRect()
-    // at ~1x (and any bad state) the canvas is locked centred — it can never be lost
-    if (!r || z <= 1.001) return { z: 1, x: 0, y: 0 }
-    // content always fully covers the viewport: cannot pan past its own edges
-    const mx = (r.width * (z - 1)) / 2, my = (r.height * (z - 1)) / 2
+    if (!r) return { z, x: isFinite(v.x) ? v.x : 0, y: isFinite(v.y) ? v.y : 0 }
+    // generous but finite: the frame can travel across the viewport (work surface around it),
+    // never off to infinity — double-click / fit always brings it back
+    const mx = r.width * (0.5 + z * 0.5), my = r.height * (0.5 + z * 0.5)
     const x = Math.max(-mx, Math.min(mx, isFinite(v.x) ? v.x : 0))
     const y = Math.max(-my, Math.min(my, isFinite(v.y) ? v.y : 0))
     return { z, x, y }
@@ -74,9 +74,12 @@ export default function Viewport({ engineRef, onReady }) {
   }
   useEffect(() => {
     const move = (e) => {
-      if (!panRef.current) return
-      setView((v) => clampView({ ...v, x: panRef.current.ox + (e.clientX - panRef.current.sx),
-                                       y: panRef.current.oy + (e.clientY - panRef.current.sy) }))
+      const pr = panRef.current
+      if (!pr) return
+      // read the ref NOW — pointerup can null it before this async updater runs
+      const nx = pr.ox + (e.clientX - pr.sx)
+      const ny = pr.oy + (e.clientY - pr.sy)
+      setView((v) => clampView({ ...v, x: nx, y: ny }))
     }
     const up = () => { panRef.current = null }
     window.addEventListener('pointermove', move)
