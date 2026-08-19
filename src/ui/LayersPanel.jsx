@@ -70,25 +70,58 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
         <div className="sec-title">Depth engine</div>
         <div className="card">
           <div className="prm">
-            <div className="prm-top"><span className="prm-lbl">Model</span></div>
-            <div className="seg">
-              {Object.entries(MODELS).map(([k, m]) => (
-                <button key={k} className={depth.model === k ? 'on' : ''}
-                  title={`${m.label} — about ${m.mb} MB, cached after first use`}
-                  onClick={() => setDepth({ model: k })}>{k}</button>
-              ))}
+            <div className="prm-top">
+              <span className="prm-lbl">Source</span>
+              <span className="prm-val">{depth.source}</span>
+            </div>
+            <select style={{ width: '100%' }} value={depth.source}
+              onChange={(e) => setDepth({ source: e.target.value })}>
+              <option value="relief">Relief — carvings, flat subjects</option>
+              <option value="scene">Scene — real space, arches, caves</option>
+              <option value="hybrid">Hybrid — layout + surface detail</option>
+            </select>
+            <div style={{ color: 'var(--faint)', fontSize: 10.5, marginTop: 6, lineHeight: 1.5 }}>
+              {depth.source === 'relief' && 'Height from shading. No model needed — instant.'}
+              {depth.source === 'scene' && 'Monocular depth. Needs real distance in the shot.'}
+              {depth.source === 'hybrid' && 'Large shapes from the model, detail from shading.'}
             </div>
           </div>
 
-          <div className="prm">
-            <div className="prm-top"><span className="prm-lbl">Edge refine</span></div>
-            <div className="seg">
-              <button className={depth.refine ? '' : 'on'} onClick={() => setDepth({ refine: false })}>off</button>
-              <button className={depth.refine ? 'on' : ''} onClick={() => setDepth({ refine: true })}>on</button>
+          {depth.source !== 'relief' && (
+            <div className="prm">
+              <div className="prm-top"><span className="prm-lbl">Model</span></div>
+              <div className="seg">
+                {Object.entries(MODELS).map(([k, m]) => (
+                  <button key={k} className={depth.model === k ? 'on' : ''}
+                    title={`${m.label} — about ${m.mb} MB, cached after first use`}
+                    onClick={() => setDepth({ model: k })}>{k}</button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
-          {depth.refine && (
+          {depth.source !== 'scene' && (
+            <>
+              <div className="prm">
+                <div className="prm-top">
+                  <span className="prm-lbl">Relief scale</span>
+                  <span className="prm-val">{depth.reliefScale}</span>
+                </div>
+                <input type="range" min={4} max={90} step={1} value={depth.reliefScale}
+                  onChange={(e) => setDepth({ reliefScale: Number(e.target.value) })} />
+              </div>
+              <div className="prm">
+                <div className="prm-top">
+                  <span className="prm-lbl">Relief strength</span>
+                  <span className="prm-val">{depth.reliefGain.toFixed(2)}</span>
+                </div>
+                <input type="range" min={0.1} max={4} step={0.05} value={depth.reliefGain}
+                  onChange={(e) => setDepth({ reliefGain: Number(e.target.value) })} />
+              </div>
+            </>
+          )}
+
+          {depth.source === 'scene' && depth.refine && (
             <>
               <div className="prm">
                 <div className="prm-top">
@@ -100,14 +133,22 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
               </div>
               <div className="prm">
                 <div className="prm-top">
-                  <span className="prm-lbl">Sharpness</span>
-                  <span className="prm-val">{depth.eps.toFixed(4)}</span>
+                  <span className="prm-lbl">Edge lock</span>
+                  <span className="prm-val">{depth.eps.toFixed(3)}</span>
                 </div>
-                <input type="range" min={0.0002} max={0.02} step={0.0002} value={depth.eps}
+                <input type="range" min={0.002} max={0.12} step={0.002} value={depth.eps}
                   onChange={(e) => setDepth({ eps: Number(e.target.value) })} />
               </div>
             </>
           )}
+
+          <div className="prm">
+            <div className="prm-top"><span className="prm-lbl">Invert</span></div>
+            <div className="seg">
+              <button className={depth.invert ? '' : 'on'} onClick={() => setDepth({ invert: false })}>off</button>
+              <button className={depth.invert ? 'on' : ''} onClick={() => setDepth({ invert: true })}>on</button>
+            </div>
+          </div>
 
           <button className="btn sm" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }}
             onClick={onRedepthAll} disabled={!project.layers.length}>

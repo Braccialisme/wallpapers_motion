@@ -62,7 +62,8 @@ export const useStore = create((set, get) => ({
     showGuide: false,
   },
   // depth estimation settings (shared by every layer)
-  depth: { model: 'small', refine: true, radius: 8, eps: 0.0025 },
+  depth: { model: 'small', source: 'relief', refine: true, radius: 8, eps: 0.02,
+           reliefScale: 26, reliefGain: 1, invert: false },
   setDepth: (patch) => set((s) => ({ depth: { ...s.depth, ...patch } })),
 
   setUI: (patch) => set((s) => ({ ui: { ...s.ui, ...patch } })),

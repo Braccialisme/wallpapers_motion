@@ -117,8 +117,31 @@ See `src/effects/pointcloud.js`.
 
 ## Depth quality
 
-Monocular depth models run at a small fixed input size, so raw output is soft and its
-edges drift off the real object edges. Two controls in the left panel:
+**Pick the right estimator first — it matters far more than model size.**
+
+| source | use it for | how it works |
+|---|---|---|
+| **relief** *(default)* | carvings, reliefs, masonry, textiles, mud walls — anything flat shot head-on | height from shading. No model, instant |
+| **scene** | real space: a cave, an arch, a receding wall | monocular depth (Depth Anything V2) |
+| **hybrid** | a carved surface that also recedes | large shapes from the model, detail from shading |
+
+A monocular model estimates *scene* depth — how far away things are. A frieze photographed
+head-on has almost none: the whole wall is one distance away, so the model returns a nearly
+constant field, and normalising that to full contrast amplifies its noise into what looks
+like grainy garbage. That is the failure mode, and no amount of model size fixes it.
+
+For bas-relief the height lives in the **shading** instead, which is what `relief` reads.
+
+There is deliberately no auto mode: measured on this project's own material, a flat frieze
+and a real cave interior score 0.84 vs 0.96 on the best separability metric available —
+far too close to guess from, so choosing silently would often be wrong.
+
+**Paintings and manuscripts** have no real relief; there `relief` follows the pigment rather
+than geometry, so keep the strength low or leave the depth flat.
+
+Controls: *Relief scale* is the size of features treated as relief, *Relief strength* how
+pronounced. For `scene`, *Edge radius* / *Edge lock* drive a guided filter that snaps depth
+to the photo's edges — keep the lock above ~0.02 or the photo's texture leaks into the depth.
 
 * **Model** — `small` (50 MB, fast) · `base` (190 MB, clearly better structure) ·
   `large` (640 MB, best). Downloaded once, then cached by the browser.

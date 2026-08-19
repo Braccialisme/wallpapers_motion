@@ -91,11 +91,46 @@ export function luminancePlane(img, w, h) {
   return out
 }
 
-export function normalise(p) {
-  let min = Infinity, max = -Infinity
-  for (let i = 0; i < p.length; i++) { if (p[i] < min) min = p[i]; if (p[i] > max) max = p[i] }
-  const r = max - min || 1
-  const out = new Float32Array(p.length)
-  for (let i = 0; i < p.length; i++) out[i] = (p[i] - min) / r
+/** Repeated box blur ~= gaussian. Cheap, O(n) regardless of radius. */
+export function blur(src, w, h, radius, passes = 3) {
+  let out = src
+  const r = Math.max(1, Math.round(radius))
+  for (let i = 0; i < passes; i++) out = boxBlur(out, w, h, r)
+  return out
+}
+
+/**
+ * Relief from shading — the right estimator for bas-relief shot head-on.
+ * Scene depth is useless there (the whole wall is one distance away); the height
+ * information lives in the shading instead. Removing the large-scale lighting and
+ * albedo leaves the local shading that tracks the carving's surface.
+ */
+export function reliefFromShading(lum, w, h, sigma = 24, gain = 1) {
+  const low = blur(lum, w, h, sigma)
+  const out = new Float32Array(lum.length)
+  for (let i = 0; i < out.length; i++) out[i] = 0.5 + (lum[i] - low[i]) * gain * 4
+  return out
+}
+
+/** Split a plane into its large-scale part and its detail. */
+export function lowPass(src, w, h, sigma) { return blur(src, w, h, sigma) }
+
+/**
+ * Percentile normalisation. Plain min/max is dangerous here: a flat subject gives a
+ * nearly constant plane, and stretching that to 0..1 turns pure noise into "depth".
+ * Below `minRange` the signal is treated as flat rather than amplified.
+ */
+export function normalise(p, lo = 0.5, hi = 99.5, minRange = 1e-4) {
+  const n = p.length
+  const step = Math.max(1, Math.floor(n / 20000))
+  const sample = []
+  for (let i = 0; i < n; i += step) sample.push(p[i])
+  sample.sort((a, b) => a - b)
+  const at = (q) => sample[Math.min(sample.length - 1, Math.max(0, Math.round((q / 100) * (sample.length - 1))))]
+  const min = at(lo), max = at(hi)
+  const r = max - min
+  const out = new Float32Array(n)
+  if (r < minRange) { out.fill(0.5); return out }        // genuinely flat — do not amplify
+  for (let i = 0; i < n; i++) out[i] = Math.min(1, Math.max(0, (p[i] - min) / r))
   return out
 }

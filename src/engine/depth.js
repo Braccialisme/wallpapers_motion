@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import { guidedFilter, resamplePlane, luminancePlane, normalise } from './guided.js'
+import { guidedFilter, resamplePlane, luminancePlane, normalise, reliefFromShading, lowPass, blur } from './guided.js'
 
 // Depth Anything V2 in the browser. Weights are cached by the browser after first use.
 // Bigger model = notably better structure; the guided filter then snaps the result to
@@ -63,33 +63,78 @@ async function getPipe(modelKey, onStatus) {
  * Estimate depth and refine it against the photo's edges.
  * @returns {Promise<{data:Float32Array,width:number,height:number}>} 0=far, 1=near
  */
-export async function estimateDepth(url, img, opts = {}, onStatus) {
-  const { model = 'small', refine = true, radius = 8, eps = 0.0025, maxSize = 1400 } = opts
+async function sceneDepth(url, model, onStatus) {
   const pipe = await getPipe(model, onStatus)
-  onStatus?.('estimating depth…')
-
+  onStatus?.('estimating scene depth…')
   const out = await pipe(url)
   const t = out.predicted_depth ?? out.depth
-  const dw = t.dims?.at(-1) ?? t.width
-  const dh = t.dims?.at(-2) ?? t.height
-  let data = normalise(Float32Array.from(t.data))
+  return {
+    data: Float32Array.from(t.data),
+    width: t.dims?.at(-1) ?? t.width,
+    height: t.dims?.at(-2) ?? t.height,
+  }
+}
 
-  if (refine && img) {
-    // work at the photo's aspect, capped so the filter stays instant
-    const ar = img.naturalWidth / img.naturalHeight
-    const w = Math.max(64, Math.min(maxSize, img.naturalWidth))
-    const h = Math.max(64, Math.round(w / ar))
-    onStatus?.('refining edges…')
-    const guide = luminancePlane(img, w, h)
-    const up = resamplePlane(data, dw, dh, w, h)
-    const r = Math.max(2, Math.round((radius * w) / 1000))
-    data = normalise(guidedFilter(guide, up, w, h, r, eps))
-    onStatus?.('depth ready')
-    return { data, width: w, height: h }
+/**
+ * Build a depth map.
+ *
+ * source:
+ *   'scene'  monocular depth. Right for real space — a cave, an arch, a receding wall.
+ *   'relief' height from shading. Right for carvings and anything flat shot head-on,
+ *            where scene depth carries no signal and only amplifies noise.
+ *   'hybrid' large-scale layout from scene depth, surface detail from shading.
+ *
+ * There is deliberately no auto mode. A monocular model returns confident smooth depth
+ * for a flat frieze and for a real interior alike — measured on our own material the two
+ * are only 0.84 vs 0.96 on any separability metric worth trusting, so guessing would
+ * quietly pick wrong. The choice is explicit instead.
+ */
+export async function estimateDepth(url, img, opts = {}, onStatus) {
+  const {
+    model = 'small', source = 'relief', refine = true, radius = 8, eps = 0.02,
+    reliefScale = 26, reliefGain = 1, invert = false, maxSize = 1400,
+  } = opts
+
+  const ar = img.naturalWidth / img.naturalHeight
+  const w = Math.max(64, Math.min(maxSize, img.naturalWidth))
+  const h = Math.max(64, Math.round(w / ar))
+  const lum = luminancePlane(img, w, h)
+
+  let data
+  let picked = source
+
+  if (source === 'relief') {
+    onStatus?.('building relief from shading…')
+    data = reliefFromShading(lum, w, h, (reliefScale * w) / 1000, reliefGain)
+  } else {
+    const scene = await sceneDepth(url, model, onStatus)
+    const up0 = resamplePlane(scene.data, scene.width, scene.height, w, h)
+    let up = up0
+
+    if (picked === 'hybrid') {
+      onStatus?.('combining scene depth with surface relief…')
+      const base = normalise(up)
+      const large = lowPass(base, w, h, (reliefScale * 2 * w) / 1000)
+      const detail = reliefFromShading(lum, w, h, (reliefScale * w) / 1000, reliefGain)
+      data = new Float32Array(base.length)
+      for (let i = 0; i < data.length; i++) data[i] = large[i] + (detail[i] - 0.5) * 0.7
+    } else {
+      if (refine) {
+        onStatus?.('refining edges…')
+        const r = Math.max(2, Math.round((radius * w) / 1000))
+        up = guidedFilter(lum, normalise(up), w, h, r, eps)
+      }
+      data = up
+    }
   }
 
-  onStatus?.('depth ready')
-  return { data, width: dw, height: dh }
+  data = normalise(data)
+  // a little smoothing keeps shading noise from reading as surface grain
+  data = normalise(blur(data, w, h, Math.max(1, Math.round(w / 900)), 1))
+  if (invert) for (let i = 0; i < data.length; i++) data[i] = 1 - data[i]
+
+  onStatus?.(`depth ready (${picked})`)
+  return { data, width: w, height: h, source: picked }
 }
 
 /** Float depth -> R32F texture, flipped to match a flipY colour texture. */

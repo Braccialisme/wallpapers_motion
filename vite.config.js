@@ -38,9 +38,21 @@ function exportServer() {
     name: 'shimmerlab-export',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
-        if (!req.url?.startsWith('/api/export/')) return next()
+        if (!req.url?.startsWith('/api/')) return next()
         try {
           const route = req.url.split('?')[0]
+
+          // dev-only: let the browser drop an image on disk so depth output can be
+          // inspected directly. This middleware exists only in the dev server.
+          if (route === '/api/debug/save') {
+            const name = new URL(req.url, 'http://x').searchParams.get('name') || 'debug'
+            const buf = await readBody(req)
+            const dir = path.resolve('dev-assets')
+            fs.mkdirSync(dir, { recursive: true })
+            const file = path.join(dir, `${name}.png`)
+            fs.writeFileSync(file, buf)
+            return json(res, 200, { ok: true, file })
+          }
 
           if (route === '/api/export/start') {
             const { name = 'shimmer', fps = 24 } = JSON.parse((await readBody(req)).toString() || '{}')
