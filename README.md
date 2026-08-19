@@ -45,6 +45,41 @@ and reproduces the preview exactly.
 
 ---
 
+## The wall, the pasteboard & layout
+
+The **frame** is the wall — the actual projection surface (`4550×1000`, etc). The
+**pasteboard** is a dark surround (3× the wall) you can park layers on, like the artboard
+surround in Illustrator/Affinity. Toggle it in the viewbar; export is always the frame only.
+
+Position X is measured from the **centre of the wall**, so a `4550` wall runs from
+`X = −2275` (left edge) to `X = +2275` (right edge). A layer whose centre is past that is
+out on the pasteboard — visible while the pasteboard is shown, but **not on the wall**, so
+in frame-only / export the paper ground shows there instead. This is the single most common
+"why is there paper over my image" confusion.
+
+**Gotcha that drives layout design:** each layer is rasterised into a canvas-sized target and
+**clipped there, before its effect chain runs.** In the pasteboard the canvas is 3× the wall
+so nothing clips; in frame-only the canvas *is* the wall, so any content past the edge is gone
+before effects. Therefore a UV-space `drift` **cannot scroll off-wall content into view** in an
+export — to move content across the wall over time you must keyframe the **placement**
+(`transform.x`), not shift UVs. `parade` does exactly this.
+
+Layout buttons (Layers panel header):
+
+| button | what it does |
+|---|---|
+| **Parade ▶** | packs every photo full-height edge-to-edge into a filmstrip wider than the wall, then keyframes the whole strip scrolling across the wall over the timeline. The strip always spans the wall, so the wall is **never empty (never paper)** — the brief's "infinite canvas of photos drifting past". Turns the reveal/emboss ghost off. |
+| **Fill wall** | cover-crops all layers edge-to-edge to fill the wall in one static frame — no gaps, no paper, but images are cropped/scaled to all fit at once. |
+| **Fit all** | tiles layers side by side *contained* inside the wall (may leave paper gaps if they don't fill it). |
+| **Photos ○ / ●** | toggles every layer between the reveal/emboss look and plain placed photos (drift and other effects stay on). Non-destructive. |
+
+> Note on "paper" vs "ghost": the flat off-white ground is `paper` (only shows where no layer
+> covers the wall). The *other* off-white — with the image's relief pressed into it — is the
+> `emboss` **un-revealed** state, shown wherever the traveling reveal hasn't swept yet. They
+> look similar; the relief is the tell.
+
+---
+
 ## Adding an effect
 
 **Drop one file in `src/effects/`.** That is the entire process — it is auto-discovered,
@@ -110,7 +145,7 @@ See `src/effects/pointcloud.js`.
 | `scatterReveal` | grain-in reveal driven by depth wavefront, scan, radial or a point |
 | `emboss` | blind-emboss ghost of the depth into the paper where not yet revealed |
 | `pointcloud` | GPU point cloud that assembles from depth-ordered scatter into the photo |
-| `drift` | slow scroll |
+| `drift` | slow scroll *within* a layer (UV shift; for scrolling the whole comp across the wall use **Parade**, which keyframes placement — see *The wall, the pasteboard & layout*) |
 | `grade` | exposure / contrast / saturation / tint / vignette |
 
 ---
@@ -213,7 +248,7 @@ src/
     exporter.js full-res frame export
     glsl.js     shared shader prelude
   ui/           panels, inspector, timeline, viewport
-  store.js      project state + keyframes
+  store.js      project state + keyframes  (layout actions: parade, fillWall, toggleRawPhotos)
   presets.js    starting chains
 ```
 
