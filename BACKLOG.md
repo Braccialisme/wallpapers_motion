@@ -124,6 +124,27 @@ glow actually blooms on the projection. Reusable by everything.
 
 ---
 
+## F. More fun (installation energy)
+
+- **Gold-leaf shimmer** — anisotropic specular that catches a slow moving light, keyed to the
+  bright/gold pixels. Made for the illuminated manuscript + carved gilding. (GLSL, no dep.)
+- **Light sweep / caustics** — a soft light bar (or water caustics) travelling across the wall,
+  raking the depth relief so the carving "catches the light". Very projection-native.
+- **Breathing** — a barely-there global sine on scale/opacity so a still wall is never dead.
+- **Ink-bleed reveal** — wet diffusion wavefront (reaction-diffusion-ish) instead of stipple;
+  content blooms out like ink into paper.
+- **Embers / dust** — GPU points drifting up over the paper, lit by depth. Ambient life.
+- **Duotone / risograph / letterpress** heritage grades (indigo, gold, oxblood) as one-click looks.
+- **Site transitions** — themed wipes between Palmyra → Angkor → Agadez for the 5-min master.
+- **Audio-reactive** — mic/analyser drives reveal speed / glow pulse. Fun for a live install.
+- **Kiosk / presence mode** — pointer or webcam presence reveals the wall as a viewer walks by
+  (the Immersive-Garden cursor, but the visitor is the cursor).
+- **Depth fog / atmosphere** — distance haze from the depth map for the *scene* shots (caves, arches).
+- **Ken Burns** — subtle auto push-in per image during Parade, eased.
+- **Parallax parade** — Parade, but each image drifts at a speed set by its depth → layered motion.
+
+---
+
 ## Lib shortlist (browser + GPU, no native toolchain)
 
 | need | pick | why |
