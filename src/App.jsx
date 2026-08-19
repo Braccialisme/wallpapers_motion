@@ -250,6 +250,7 @@ export default function App() {
           }}>
           <option value="4550x1000">4550 × 1000 — small wall</option>
           <option value="8750x1000">8750 × 1000 — long wall</option>
+          <option value="22050x1000">22050 × 1000 — all three walls</option>
           <option value="1920x1080">1920 × 1080 — test</option>
         </select>
 

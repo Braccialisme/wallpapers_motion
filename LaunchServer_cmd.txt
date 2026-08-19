@@ -1,0 +1,2 @@
+cd C:\Users\iconem\Desktop\wallpapers_motion
+npm run dev

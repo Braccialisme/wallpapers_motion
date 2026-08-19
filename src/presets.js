@@ -96,4 +96,28 @@ export const PRESETS = {
       st.setParam(id, dr, 'speedY', 0)
     },
   },
+
+  travelGarden: {
+    name: 'Traveling reveal (cursor)',
+    apply: (st) => {
+      ensureGlobal(st, 'paper')
+      // every image: ghost embossed on the paper, revealed as the cursor passes
+      for (const layer of st.project.layers) {
+        ;[...layer.effects].forEach((f) => st.removeEffect(layer.id, f.id))
+        const rev = st.addEffect(layer.id, 'scatterReveal')
+        st.setParam(layer.id, rev, 'driver', 5)      // travel (cursor)
+        st.setParam(layer.id, rev, 'scatter', 0.55)
+        st.setParam(layer.id, rev, 'softness', 0.12)
+        st.setParam(layer.id, rev, 'travelDur', 3)
+        const emb = st.addEffect(layer.id, 'emboss')
+        st.setParam(layer.id, emb, 'ghost', 0.55)
+      }
+      // a straight left-to-right sweep across the whole duration, mid-height
+      const dur = st.project.duration
+      st.setCursor({ enabled: true, shape: 0, spread: 0.16 })
+      ;((st.project.cursor && st.project.cursor.points) || []).slice().forEach((_, i, a) => st.removeCursorPoint(a.length - 1 - i))
+      st.addCursorPoint(0, 0.02, 0.5)
+      st.addCursorPoint(dur, 0.98, 0.5)
+    },
+  },
 }

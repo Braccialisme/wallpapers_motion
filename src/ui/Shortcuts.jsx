@@ -19,8 +19,18 @@ export function useShortcuts() {
   useEffect(() => {
     const onKey = (e) => {
       const el = document.activeElement
-      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA')
+      // only real text entry should swallow shortcuts — a focused range slider or a
+      // button must NOT, otherwise Space stops working after you touch a control.
+      const textTypes = ['text', 'number', 'email', 'search', 'password', 'url']
+      const typing =
+        el && ((el.tagName === 'INPUT' && textTypes.includes(el.type)) ||
+               el.tagName === 'TEXTAREA' || el.isContentEditable)
       if (typing && e.key !== 'Escape') return
+
+      // a focused slider/button would also fire on Space via the browser default;
+      // drop its focus so our handler is the only thing that acts.
+      if (e.key === ' ' && el && (el.tagName === 'BUTTON' ||
+          (el.tagName === 'INPUT' && el.type === 'range'))) el.blur()
 
       const s = useStore.getState()
       const { project, ui } = s

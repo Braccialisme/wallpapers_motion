@@ -11,6 +11,8 @@ uniform float uTime;        // seconds
 uniform float uProgress;    // 0..1 across the timeline
 uniform float uScale;       // renderW / canvasW  -> scale pixel-based params
 uniform float uSeed;
+uniform sampler2D uTouch;   // canvas-space: time the cursor first reached each pixel
+uniform float uHasTouch;    // 1 if a cursor path exists
 
 varying vec2 vUv;
 

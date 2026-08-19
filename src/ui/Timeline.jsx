@@ -1,6 +1,7 @@
-import React from 'react'
-import { useStore } from '../store.js'
+import React, { useRef } from 'react'
+import { useStore, evalKeys } from '../store.js'
 import { getEffect } from '../effects/index.js'
+import NumberField from './NumberField.jsx'
 
 function labelFor(project, path) {
   const p = path.split(':')
@@ -15,13 +16,62 @@ function labelFor(project, path) {
   return `${ln} · ${getEffect(fx?.type)?.name || '?'} · ${p[4]}`
 }
 
+// grey spline of the animated value across the track, so a track is a curve not just dots
+function ValueSpline({ keys, dur }) {
+  if (!keys || keys.length < 1) return null
+  const nums = keys.map((k) => k.v).filter((v) => typeof v === 'number')
+  if (nums.length < keys.length) return null   // colour/array params: no scalar curve
+  let lo = Math.min(...nums), hi = Math.max(...nums)
+  if (hi - lo < 1e-6) { lo -= 0.5; hi += 0.5 }
+  const N = 60
+  const pts = []
+  for (let i = 0; i <= N; i++) {
+    const t = (i / N) * dur
+    const v = evalKeys(keys, t)
+    const y = 90 - ((v - lo) / (hi - lo)) * 80
+    pts.push(`${(t / dur) * 100},${y}`)
+  }
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none"
+      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+      <polyline points={pts.join(' ')} fill="none" stroke="rgba(255,255,255,.3)" strokeWidth="1"
+        vectorEffect="non-scaling-stroke" />
+    </svg>
+  )
+}
+
 export default function Timeline() {
   const { project, ui } = useStore()
   const setUI = useStore((s) => s.setUI)
   const removeKey = useStore((s) => s.removeKey)
+  const moveKey = useStore((s) => s.moveKey)
   const setProject = useStore((s) => s.setProject)
   const dur = project.duration || 1
   const paths = Object.keys(project.keyframes)
+  const drag = useRef(null)
+
+  const onLaneDown = (path, k) => (e) => {
+    e.stopPropagation()
+    if (e.shiftKey) { removeKey(path, k.t); return }
+    const lane = e.currentTarget.closest('.lane')
+    drag.current = { path, t: k.t, lane }
+    setUI({ time: k.t, playing: false })
+  }
+  React.useEffect(() => {
+    const move = (e) => {
+      const d = drag.current
+      if (!d) return
+      const r = d.lane.getBoundingClientRect()
+      const nt = Math.max(0, Math.min(dur, ((e.clientX - r.left) / r.width) * dur))
+      moveKey(d.path, d.t, nt)
+      d.t = nt
+      setUI({ time: nt })
+    }
+    const up = () => { drag.current = null }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+  }, [dur])
 
   return (
     <div className="timeline">
@@ -38,11 +88,11 @@ export default function Timeline() {
         <input className="grow" type="range" min={0} max={dur} step={1 / (project.fps || 24)}
           value={ui.time} onChange={(e) => setUI({ time: Number(e.target.value), playing: false })} />
         <span style={{ color: 'var(--faint)', fontSize: 11.5 }}>dur</span>
-        <input type="number" min={1} max={600} value={dur} style={{ width: 64 }}
-          onChange={(e) => setProject({ duration: Math.max(1, Number(e.target.value) || 1) })} />
+        <NumberField value={dur} min={1} max={600} step={1} style={{ width: 64 }}
+          onCommit={(n) => setProject({ duration: n })} />
         <span style={{ color: 'var(--faint)', fontSize: 11.5 }}>fps</span>
-        <input type="number" min={1} max={60} value={project.fps} style={{ width: 56 }}
-          onChange={(e) => setProject({ fps: Math.max(1, Number(e.target.value) || 24) })} />
+        <NumberField value={project.fps} min={1} max={60} step={1} style={{ width: 56 }}
+          onCommit={(n) => setProject({ fps: n })} />
         <button className="btn ico" title="keyboard shortcuts" onClick={() => setUI({ showHelp: true })}>?</button>
       </div>
 
@@ -58,11 +108,11 @@ export default function Timeline() {
               const r = e.currentTarget.getBoundingClientRect()
               setUI({ time: ((e.clientX - r.left) / r.width) * dur, playing: false })
             }}>
+            <ValueSpline keys={project.keyframes[path]} dur={dur} />
             {project.keyframes[path].map((k) => (
               <div key={k.t} className="kf" style={{ left: `${(k.t / dur) * 100}%` }}
-                title={`${k.t.toFixed(2)}s — click to jump, shift-click to delete`}
-                onClick={(e) => { e.stopPropagation()
-                  if (e.shiftKey) removeKey(path, k.t); else setUI({ time: k.t, playing: false }) }} />
+                title={`${k.t.toFixed(2)}s — drag to move, shift-click to delete`}
+                onPointerDown={onLaneDown(path, k)} />
             ))}
             <div className="play" style={{ left: `${(ui.time / dur) * 100}%` }} />
           </div>

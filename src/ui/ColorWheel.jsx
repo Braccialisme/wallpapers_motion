@@ -111,6 +111,14 @@ export default function ColorWheel({ value, onChange }) {
       <div className="cw-side">
         <div className="cw-sw" style={{ background: toHex(rgb) }} />
         <div className="prm-top" style={{ marginBottom: 4 }}>
+          <span className="prm-lbl">saturation</span>
+          <span className="prm-val">{s.toFixed(2)}</span>
+        </div>
+        <input
+          type="range" min={0} max={1} step={0.005} value={s}
+          onChange={(e) => onChange(hsv2rgb(h, Number(e.target.value), v))}
+        />
+        <div className="prm-top" style={{ margin: '6px 0 4px' }}>
           <span className="prm-lbl">brightness</span>
           <span className="prm-val">{v.toFixed(2)}</span>
         </div>

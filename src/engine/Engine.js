@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { PRELUDE, VERT_QUAD, POINTS_PRELUDE, POINTS_FRAG } from './glsl.js'
 import { getEffect } from '../effects/index.js'
+import { cursorAt } from '../store.js'
 
 const VERT_PLACE = /* glsl */ `
 uniform vec2  uHalfPx;    // half size of the quad in canvas px
@@ -136,6 +137,64 @@ export default class Engine {
     return this.rts
   }
 
+  // Build a canvas-space map of WHEN the cursor brush first reached each pixel.
+  // Computed on the CPU from the path (short), cached by a signature, uploaded as a
+  // float texture. The reveal shader turns (uTime - touchTime) into a local wavefront,
+  // so a pixel stays revealed once the brush has passed — that is the trail.
+  ensureTouchMap(project) {
+    const cur = project.cursor
+    const pts = cur?.points || []
+    const sig = JSON.stringify({ e: cur?.enabled, s: cur?.spread, sh: cur?.shape, p: pts, d: project.duration,
+                                 c: [project.canvas.w, project.canvas.h] })
+    if (sig === this._touchSig) return this.touchTex
+    this._touchSig = sig
+
+    if (this.touchTex) { this.touchTex.dispose(); this.touchTex = null }
+    if (!cur?.enabled || pts.length < 1) return null
+
+    const aspect = project.canvas.w / project.canvas.h
+    const TW = 512
+    const TH = Math.max(2, Math.round(TW / aspect))
+    const buf = new Float32Array(TW * TH).fill(1e9)   // 1e9 = never touched
+    const rad = Math.max(0.01, cur.spread)
+    const shapeScale = cur.shape === 2 ? 0.45 : 1      // dot is tighter
+    const r = rad * shapeScale
+
+    const t0 = pts[0].t, t1 = pts[pts.length - 1].t
+    const N = 700
+    for (let sIdx = 0; sIdx <= N; sIdx++) {
+      const t = t1 > t0 ? t0 + ((t1 - t0) * sIdx) / N : t0
+      const pos = cursorAt(cur, t)
+      if (!pos) continue
+      const cxp = pos.x, cyp = pos.y
+      const x0 = Math.max(0, Math.floor((cxp - r / aspect) * TW))
+      const x1 = Math.min(TW - 1, Math.ceil((cxp + r / aspect) * TW))
+      const y0 = Math.max(0, Math.floor((cyp - r) * TH))
+      const y1 = Math.min(TH - 1, Math.ceil((cyp + r) * TH))
+      for (let py = y0; py <= y1; py++) {
+        const uy = (py + 0.5) / TH
+        for (let px = x0; px <= x1; px++) {
+          const ux = (px + 0.5) / TW
+          const dx = (ux - cxp) * aspect, dy = uy - cyp
+          if (dx * dx + dy * dy <= r * r) {
+            const i = py * TW + px
+            if (t < buf[i]) buf[i] = t
+          }
+        }
+      }
+      if (t1 === t0) break
+    }
+
+    const flipped = new Float32Array(buf.length)
+    for (let y = 0; y < TH; y++) flipped.set(buf.subarray((TH - 1 - y) * TW, (TH - y) * TW), y * TW)
+    const tex = new THREE.DataTexture(flipped, TW, TH, THREE.RedFormat, THREE.FloatType)
+    tex.minFilter = THREE.LinearFilter; tex.magFilter = THREE.LinearFilter
+    tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+    tex.needsUpdate = true
+    this.touchTex = tex
+    return tex
+  }
+
   pointGeometry(density) {
     const d = Math.max(8, Math.min(2048, Math.round(density)))
     if (this.pointGeo.has(d)) return this.pointGeo.get(d)
@@ -163,6 +222,7 @@ export default class Engine {
       uTex: { value: null }, uDepth: { value: null },
       uRes: { value: new THREE.Vector2() }, uCanvas: { value: new THREE.Vector2() },
       uTime: { value: 0 }, uProgress: { value: 0 }, uScale: { value: 1 }, uSeed: { value: 0 },
+      uTouch: { value: null }, uHasTouch: { value: 0 },
     }
   }
 
@@ -205,6 +265,8 @@ export default class Engine {
     u.uProgress.value = ctx.progress
     u.uScale.value = ctx.scale
     u.uSeed.value = ctx.seed || 0
+    if (u.uTouch) u.uTouch.value = ctx.touchTex || null
+    if (u.uHasTouch) u.uHasTouch.value = ctx.touchTex ? 1 : 0
     for (const [k, p] of Object.entries(def.params)) {
       const key = 'p_' + k
       if (!u[key]) continue
@@ -234,6 +296,7 @@ export default class Engine {
     const progress = Math.min(1, Math.max(0, time / duration))
 
     const [rtA, rtB, rtComp, rtLayer, rtDepth] = this.ensureRTs(w, h, 5)
+    const touchTex = this.ensureTouchMap(project)
     const r = this.renderer
     r.setSize(w, h, false)
 
@@ -293,7 +356,7 @@ export default class Engine {
       let src = rtLayer
       let slot = 0
       const pool = [rtA, rtB]
-      const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: layer.seed || 0 }
+      const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: layer.seed || 0, touchTex }
 
       for (const fx of layer.effects || []) {
         const dst = pool[slot % 2]
@@ -349,7 +412,7 @@ export default class Engine {
     let src = rtComp
     let gslot = 0
     const gpool = [rtA, rtB]
-    const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: 0 }
+    const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: 0, touchTex }
     for (const fx of opts.viewDepth ? [] : project.globalEffects || []) {
       if (!fx.enabled) continue
       const def = getEffect(fx.type)

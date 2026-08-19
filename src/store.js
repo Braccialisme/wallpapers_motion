@@ -3,6 +3,18 @@ import { defaultParams, getEffect } from './effects/index.js'
 
 const uid = (p = 'id') => `${p}_${Math.random().toString(36).slice(2, 9)}`
 
+const DEFAULT_CURSOR = { enabled: false, shape: 0, spread: 0.16, softness: 0.5, points: [] }
+
+// backfill fields added after a project was saved, so old autosaves keep working
+function migrate(p) {
+  return {
+    duration: 20, fps: 24, globalEffects: [], keyframes: {},
+    ...p,
+    canvas: { w: 4550, h: 1000, ...(p.canvas || {}) },
+    cursor: { ...DEFAULT_CURSOR, ...(p.cursor || {}) },
+  }
+}
+
 // keyframe path helpers -------------------------------------------------------
 export const pathT = (layerId, prop) => `L:${layerId}:T:${prop}`
 export const pathE = (layerId, fxId, param) => `L:${layerId}:E:${fxId}:${param}`
@@ -51,6 +63,14 @@ export const useStore = create((set, get) => ({
     layers: [],
     globalEffects: [],
     keyframes: {},
+    // traveling reveal cursor — a path the "brush" follows across the whole canvas
+    cursor: {
+      enabled: false,
+      shape: 0,          // 0 circle · 1 brush · 2 dot
+      spread: 0.16,      // brush radius, fraction of canvas height
+      softness: 0.5,     // edge feather
+      points: [],        // [{ t, x, y }]  x,y normalised 0..1 in canvas space
+    },
   },
   ui: {
     time: 0, playing: false, loop: true,
@@ -60,6 +80,7 @@ export const useStore = create((set, get) => ({
     viewDepth: false,
     showHelp: false,
     showGuide: false,
+    cursorEdit: false,
   },
   // depth estimation settings (shared by every layer)
   depth: { model: 'small', source: 'relief', refine: true, radius: 8, eps: 0.02,
@@ -172,7 +193,31 @@ export const useStore = create((set, get) => ({
     return { project: { ...s.project, keyframes: kf } }
   }),
 
-  loadProject: (p) => set(() => ({ project: p, ui: { ...get().ui, time: 0, selectedLayer: p.layers[0]?.id ?? null } })),
+  moveKey: (path, fromT, toT) => set((s) => {
+    const list = (s.project.keyframes[path] || []).map((k) =>
+      Math.abs(k.t - fromT) < 1e-4 ? { ...k, t: toT } : k)
+    list.sort((a, b) => a.t - b.t)
+    return { project: { ...s.project, keyframes: { ...s.project.keyframes, [path]: list } } }
+  }),
+
+  // ------------------------------------------------------------------ cursor
+  setCursor: (patch) => set((s) => ({ project: { ...s.project, cursor: { ...DEFAULT_CURSOR, ...s.project.cursor, ...patch } } })),
+  addCursorPoint: (t, x, y) => set((s) => {
+    const cur = s.project.cursor || DEFAULT_CURSOR
+    const pts = [...(cur.points || [])].filter((p) => Math.abs(p.t - t) > 1e-3)
+    pts.push({ t, x, y }); pts.sort((a, b) => a.t - b.t)
+    return { project: { ...s.project, cursor: { ...DEFAULT_CURSOR, ...cur, enabled: true, points: pts } } }
+  }),
+  updateCursorPoint: (i, patch) => set((s) => {
+    const pts = s.project.cursor.points.map((p, j) => (j === i ? { ...p, ...patch } : p))
+    pts.sort((a, b) => a.t - b.t)
+    return { project: { ...s.project, cursor: { ...s.project.cursor, points: pts } } }
+  }),
+  removeCursorPoint: (i) => set((s) => ({
+    project: { ...s.project, cursor: { ...s.project.cursor, points: s.project.cursor.points.filter((_, j) => j !== i) } },
+  })),
+
+    loadProject: (p) => set(() => ({ project: migrate(p), ui: { ...get().ui, time: 0, selectedLayer: p.layers[0]?.id ?? null } })),
 }))
 
 if (import.meta.env.DEV) window.__store = useStore   // handy in the console
@@ -207,4 +252,21 @@ export function resolveProject(project, t) {
     return { ...f, params }
   })
   return { ...project, layers, globalEffects }
+}
+
+/** Interpolate the cursor path to a position at time t, or null if no path. */
+export function cursorAt(cursor, t) {
+  const pts = cursor?.points || []
+  if (pts.length === 0) return null
+  if (pts.length === 1) return { x: pts[0].x, y: pts[0].y }
+  if (t <= pts[0].t) return { x: pts[0].x, y: pts[0].y }
+  const last = pts[pts.length - 1]
+  if (t >= last.t) return { x: last.x, y: last.y }
+  for (let i = 0; i < pts.length - 1; i++) {
+    if (t >= pts[i].t && t <= pts[i + 1].t) {
+      const f = (t - pts[i].t) / ((pts[i + 1].t - pts[i].t) || 1)
+      return { x: lerp(pts[i].x, pts[i + 1].x, f), y: lerp(pts[i].y, pts[i + 1].y, f) }
+    }
+  }
+  return { x: last.x, y: last.y }
 }

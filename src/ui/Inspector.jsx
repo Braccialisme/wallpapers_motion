@@ -11,6 +11,55 @@ const T_DEFS = {
   opacity: { type: 'float', min: 0, max: 1, step: 0.01, label: 'Opacity' },
 }
 
+function CursorCard() {
+  const cursor = useStore((s) => s.project.cursor)
+  const setCursor = useStore((s) => s.setCursor)
+  const setUI = useStore((s) => s.setUI)
+  const cursorEdit = useStore((s) => s.ui.cursorEdit)
+  const removeCursorPoint = useStore((s) => s.removeCursorPoint)
+  const n = cursor?.points?.length || 0
+  return (
+    <div className="card">
+      <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Reveal cursor</span></div>
+        <div className="seg">
+          <button className={cursor?.enabled ? '' : 'on'} onClick={() => setCursor({ enabled: false })}>off</button>
+          <button className={cursor?.enabled ? 'on' : ''} onClick={() => setCursor({ enabled: true })}>on</button>
+        </div>
+      </div>
+      <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Shape</span></div>
+        <div className="seg">
+          {['circle', 'brush', 'dot'].map((sh, i) => (
+            <button key={sh} className={Math.round(cursor?.shape || 0) === i ? 'on' : ''}
+              onClick={() => setCursor({ shape: i })}>{sh}</button>
+          ))}
+        </div>
+      </div>
+      <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Spread</span><span className="prm-val">{(cursor?.spread ?? 0.16).toFixed(2)}</span></div>
+        <input type="range" min={0.03} max={0.6} step={0.01} value={cursor?.spread ?? 0.16}
+          onChange={(e) => setCursor({ spread: Number(e.target.value) })} />
+      </div>
+      <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Softness</span><span className="prm-val">{(cursor?.softness ?? 0.5).toFixed(2)}</span></div>
+        <input type="range" min={0} max={1} step={0.02} value={cursor?.softness ?? 0.5}
+          onChange={(e) => setCursor({ softness: Number(e.target.value) })} />
+      </div>
+      <button className={'btn sm' + (cursorEdit ? ' on' : '')} style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
+        onClick={() => setUI({ cursorEdit: !cursorEdit })}>
+        {cursorEdit ? 'Editing path — click canvas to add points' : 'Edit path on canvas'}
+      </button>
+      <div style={{ color: 'var(--faint)', fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
+        {n} point{n === 1 ? '' : 's'}. Scrub the time, click the canvas to drop the cursor where it
+        should be at that moment; drag points to adjust, double-click to remove. Then give each layer a
+        Scatter Reveal with driver “travel (cursor)”.
+        {n > 0 && <button className="btn sm" style={{ marginTop: 6 }} onClick={() => { while ((useStore.getState().project.cursor.points || []).length) removeCursorPoint(0) }}>clear path</button>}
+      </div>
+    </div>
+  )
+}
+
 export default function Inspector({ onRedepth }) {
   const { project, ui } = useStore()
   const updateTransform = useStore((s) => s.updateTransform)
@@ -29,6 +78,13 @@ export default function Inspector({ onRedepth }) {
         <div className="sec">
           <div className="sec-title">Global chain</div>
           <EffectChain target="global" effects={project.globalEffects} />
+        </div>
+      )}
+
+      {tab === 'global' && (
+        <div className="sec">
+          <div className="sec-title">Traveling reveal</div>
+          <CursorCard />
         </div>
       )}
 
