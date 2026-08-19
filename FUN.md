@@ -12,6 +12,16 @@ so a project made on `main` still opens fine here.
 | **Bloom** `bloom` | global | single-pass bright-pass bloom so the glow (and any highlights) actually bloom on the projection. |
 | **Gold-leaf shimmer** `goldLeaf` | layer | a slowly rotating light rakes the surface relief and sparkles on the bright/warm (gilded) pixels. For the illuminated manuscript and gilding. |
 | **Staged reveal** (in `emboss`) | layer | the original look: as the reveal wavefront passes, each pixel goes **paper → grey depth relief → desaturated base colour → full photo**. Toggle **Staged** on the Blind Emboss effect; three thresholds control the timing. Off by default. |
+| **Duotone** `duotone` | both | luma mapped through a 3-stop colour ramp (shadow / mid / highlight). |
+| **Audio-reactive** | — | the **Audio** toggle in the viewbar opens the mic; `meyda` extracts level + bass/mid/treble into shader uniforms `uAudio / uAudioLow / uAudioMid / uAudioHigh`. Saber glow pumps on bass, gold-leaf twinkles on treble (set their *Audio-react* amount). Any effect can read those uniforms. |
+
+## Libs added
+
+`meyda` (audio features) · `chroma-js` (palettes / duotone) · `d3-contour` + `simplify-js`
+(depth/mask → vector paths) · `opentype.js` (glyph outlines → light-up calligraphy) ·
+`simplex-noise` (procedural fields) · `@imgly/background-removal` (subject cut-out) · `d3-ease`
+(easing). Audio + duotone are wired now; the rest are installed and ready for the next round
+(see `../wallpapers_motion/BACKLOG.md`).
 
 ## New presets
 
