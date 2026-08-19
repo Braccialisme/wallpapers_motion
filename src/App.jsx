@@ -152,20 +152,43 @@ export default function App() {
       }
     }
 
-    // lay new images out side by side, centred
+    // lay new images out side by side, centred, and SCALE the group so it fits inside
+    // the frame width (never spilling into the pasteboard where export would drop it)
     if (created.length) {
-      const gap = project.canvas.h * 0.02
+      const fw = project.canvas.w, fh = project.canvas.h
+      const gap = fh * 0.015
       const total = created.reduce((a, c) => a + c.w, 0) + gap * (created.length - 1)
-      let x = -total / 2
+      const fit = total > fw ? fw / total : 1
+      let x = -(total * fit) / 2
       for (const c of created) {
-        updateTransform(c.id, { x: Math.round(x + c.w / 2) })
-        x += c.w + gap
+        const w = c.w * fit
+        const l = useStore.getState().project.layers.find((L) => L.id === c.id)
+        updateTransform(c.id, { x: Math.round(x + w / 2), y: 0, scale: (l?.transform.scale || 1) * fit })
+        x += w + gap * fit
       }
     }
     setBusy(false)
 
     // real depth in the background, one at a time
     for (const c of created) runDepth(c.id)
+  }
+
+  const fitAllToFrame = () => {
+    const st = useStore.getState()
+    const layers = st.project.layers
+    if (!layers.length) return
+    const fw = st.project.canvas.w, fh = st.project.canvas.h
+    const items = layers.map((l) => { const s = fh / (l.imgH || fh); return { id: l.id, s, w: (l.imgW || fw) * s } })
+    const gap = fh * 0.01
+    const total = items.reduce((a, i) => a + i.w, 0) + gap * (items.length - 1)
+    const fit = total > fw ? fw / total : 1
+    let x = -(total * fit) / 2
+    for (const it of items) {
+      const w = it.w * fit
+      updateTransform(it.id, { x: Math.round(x + w / 2), y: 0, scale: it.s * fit })
+      x += w + gap * fit
+    }
+    setUI({ status: 'fitted all layers into the frame' })
   }
 
   const runDepth = async (layerId) => {
@@ -325,6 +348,7 @@ export default function App() {
 
       <LayersPanel
         onFiles={handleFiles}
+        onFitAll={fitAllToFrame}
         onRedepthAll={() => {
           depthCache.clear()
           for (const l of useStore.getState().project.layers) runDepth(l.id)

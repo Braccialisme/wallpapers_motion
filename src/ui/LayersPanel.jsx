@@ -6,7 +6,7 @@ const DOT = { none: '', pending: 'busy', luminance: 'busy', model: 'ok', importe
 const DEPTH_LABEL = { none: 'no depth', pending: 'estimating…', luminance: 'rough depth',
   model: 'depth ok', imported: 'imported', error: 'depth failed' }
 
-export default function LayersPanel({ onFiles, onRedepthAll }) {
+export default function LayersPanel({ onFiles, onRedepthAll, onFitAll }) {
   const { project, ui, depth } = useStore()
   const setUI = useStore((s) => s.setUI)
   const setDepth = useStore((s) => s.setDepth)
@@ -28,6 +28,7 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
     <div className="panel">
       <div className="sec">
         <div className="sec-title">Layers<span className="spacer" />
+          <button className="btn sm" title="tile every layer side by side inside the frame" onClick={onFitAll}>Fit all</button>
           <button className="btn sm" onClick={() => fileRef.current.click()}>Add</button>
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple
