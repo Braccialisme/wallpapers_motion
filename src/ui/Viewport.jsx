@@ -42,6 +42,7 @@ export default function Viewport({ engineRef, onReady }) {
   const addCursorPoint = useStore((s) => s.addCursorPoint)
   const updateCursorPoint = useStore((s) => s.updateCursorPoint)
   const removeCursorPoint = useStore((s) => s.removeCursorPoint)
+  const setCanvas = useStore((s) => s.setCanvas)
 
   // world / frame geometry ---------------------------------------------------
   const m = project.canvas.margin ?? 1.0
@@ -181,6 +182,11 @@ export default function Viewport({ engineRef, onReady }) {
           Cursor {ui.cursorEdit ? '●' : '○'}
         </button>
         <span className="mono" style={{ color: 'var(--faint)' }}>{Math.round((view.z / fitZ) * 100)}%</span>
+        <button className={'btn sm' + (m > 0 ? ' on' : '')}
+          title="toggle the pasteboard (dark surround you can park layers on)"
+          onClick={() => { setCanvas({ margin: m > 0 ? 0 : 1 }); setTimeout(resetView, 0) }}>
+          {m > 0 ? 'Pasteboard' : 'Frame only'}
+        </button>
         <button className="btn ico" title="fit the frame (double-click canvas)" onClick={resetView}>⟳ fit</button>
         <span className="mono">{project.canvas.w}×{project.canvas.h}</span>
         <span style={{ flex: 1 }} />

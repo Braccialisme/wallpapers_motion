@@ -109,7 +109,28 @@ async function exportViaWebCodecs(renderFrame, { w, h, fps, duration, name }, on
   return a.download
 }
 
+async function exportViaDesktop(renderFrame, { w, h, fps = 24, duration = 10, name = 'wall' }, onProgress, signal) {
+  const ok = await window.desktop.exportBegin({ name, fps })
+  if (!ok) throw new Error('cancelled')          // user dismissed the save dialog
+  const total = Math.max(1, Math.round(duration * fps))
+  for (let i = 0; i < total; i++) {
+    if (signal?.aborted) { await window.desktop.exportEnd({ abort: true }); throw new Error('cancelled') }
+    const blob = await renderFrame(i / fps, w, h)
+    await window.desktop.exportFrame(new Uint8Array(await blob.arrayBuffer()))
+    onProgress?.({ frame: i + 1, total, phase: 'render' })
+    if (i % 4 === 0) await yieldToBrowser()
+  }
+  onProgress?.({ frame: total, total, phase: 'encoding' })
+  const file = await window.desktop.exportEnd({})
+  onProgress?.({ frame: total, total, phase: 'done', file })
+  return file
+}
+
 export async function exportVideo(renderFrame, opts, { onProgress, signal } = {}) {
+  if (typeof window !== 'undefined' && window.desktop) {
+    onProgress?.({ frame: 0, total: 1, phase: 'choose location' })
+    return exportViaDesktop(renderFrame, opts, onProgress, signal)
+  }
   const local = await hasDevServer()
   onProgress?.({ frame: 0, total: 1, phase: local ? 'starting (ffmpeg)' : 'starting (browser)' })
   return local

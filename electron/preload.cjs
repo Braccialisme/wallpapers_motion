@@ -5,5 +5,7 @@ contextBridge.exposeInMainWorld('desktop', {
   isDesktop: true,
   save: (args) => ipcRenderer.invoke('project:save', args),
   open: () => ipcRenderer.invoke('project:open'),
-  exportFrames: (args) => ipcRenderer.invoke('export:frames', args),
+  exportBegin: (args) => ipcRenderer.invoke('export:begin', args),
+  exportFrame: (bytes) => ipcRenderer.invoke('export:frame', bytes),
+  exportEnd: (args) => ipcRenderer.invoke('export:end', args || {}),
 })
