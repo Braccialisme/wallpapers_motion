@@ -14,6 +14,7 @@ uniform float uSeed;
 uniform sampler2D uTouch;   // canvas-space: time the cursor first reached each pixel
 uniform float uHasTouch;    // 1 if a cursor path exists
 uniform sampler2D uCover;   // the layer's ORIGINAL placed image (alpha = image footprint)
+uniform vec4 uFrameRect;    // export frame within the rendered world: x,y,w,h (normalised)
 
 varying vec2 vUv;
 

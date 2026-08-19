@@ -231,6 +231,7 @@ export default class Engine {
       uRes: { value: new THREE.Vector2() }, uCanvas: { value: new THREE.Vector2() },
       uTime: { value: 0 }, uProgress: { value: 0 }, uScale: { value: 1 }, uSeed: { value: 0 },
       uTouch: { value: null }, uHasTouch: { value: 0 }, uCover: { value: null },
+      uFrameRect: { value: new THREE.Vector4(0, 0, 1, 1) },
     }
   }
 
@@ -276,6 +277,7 @@ export default class Engine {
     if (u.uTouch) u.uTouch.value = ctx.touchTex || null
     if (u.uHasTouch) u.uHasTouch.value = ctx.touchTex ? 1 : 0
     if (u.uCover) u.uCover.value = ctx.coverTex || null
+    if (u.uFrameRect && ctx.frameRect) u.uFrameRect.value.set(ctx.frameRect[0], ctx.frameRect[1], ctx.frameRect[2], ctx.frameRect[3])
     for (const [k, p] of Object.entries(def.params)) {
       const key = 'p_' + k
       if (!u[key]) continue
@@ -297,7 +299,14 @@ export default class Engine {
    * @param {object} opts     { width, height, target }  target=null -> screen
    */
   render(project, time, opts = {}) {
-    const canvasW = project.canvas.w, canvasH = project.canvas.h
+    const fw = project.canvas.w, fh = project.canvas.h            // the export FRAME
+    // preview renders a WORLD larger than the frame (a plan de travail) so layers can be
+    // parked in the surround; export renders the frame only (frameOnly:true, margin 0).
+    const m = opts.frameOnly ? 0 : (project.canvas.margin ?? 0.5)
+    const canvasW = Math.round(fw * (1 + 2 * m)), canvasH = Math.round(fh * (1 + 2 * m))
+    // the frame's rect inside the world, normalised — reveal/effects map through this
+    const fr = m > 0 ? m / (1 + 2 * m) : 0, frs = 1 / (1 + 2 * m)
+    const frameRect = [fr, fr, frs, frs]
     const w = Math.max(2, Math.round(opts.width || canvasW))
     const h = Math.max(2, Math.round(opts.height || canvasH))
     const scale = w / canvasW
@@ -365,7 +374,7 @@ export default class Engine {
       let src = rtLayer
       let slot = 0
       const pool = [rtA, rtB]
-      const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: layer.seed || 0, touchTex, coverTex: rtLayer.texture }
+      const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: layer.seed || 0, touchTex, coverTex: rtLayer.texture, frameRect }
 
       for (const fx of layer.effects || []) {
         const dst = pool[slot % 2]
@@ -421,7 +430,7 @@ export default class Engine {
     let src = rtComp
     let gslot = 0
     const gpool = [rtA, rtB]
-    const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: 0, touchTex }
+    const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: 0, touchTex, frameRect }
     for (const fx of opts.viewDepth ? [] : project.globalEffects || []) {
       if (!fx.enabled) continue
       const def = getEffect(fx.type)
@@ -462,7 +471,7 @@ export default class Engine {
   /** Render one frame at full resolution and return a PNG blob. */
   async renderToBlob(project, time, width, height) {
     const rt = this.makeRT(width, height)
-    this.render(project, time, { width, height, target: rt })
+    this.render(project, time, { width, height, target: rt, frameOnly: true })   // export = the frame only
     const buf = new Uint8Array(width * height * 4)
     this.renderer.readRenderTargetPixels(rt, 0, 0, width, height, buf)
     rt.dispose()

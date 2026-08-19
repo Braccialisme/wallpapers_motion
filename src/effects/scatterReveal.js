@@ -39,7 +39,9 @@ void main(){
     // image shows fully (never silently hidden just because the effect is present).
     if (uHasTouch < 0.5) { prog = 1.25; field = 0.0; }
     else {
-      float touched = texture2D(uTouch, vUv).r;
+      // the touch map lives in FRAME space; map this world pixel into it
+      vec2 fuv = (vUv - uFrameRect.xy) / uFrameRect.zw;
+      float touched = texture2D(uTouch, fuv).r;
       prog = clamp((uTime - touched) / max(p_travelDur, 0.01), 0.0, 1.25);
       field = 1.0 - d;
     }
