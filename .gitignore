@@ -7,3 +7,4 @@ exports/
 Thumbs.db
 *.shimmer.json
 dev-assets/
+.vite\ndesktop-dist/

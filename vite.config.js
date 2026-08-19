@@ -104,9 +104,9 @@ function exportServer() {
   }
 }
 
-export default defineConfig({
-  // GitHub Pages serves the app from /<repo>/, local dev from /
-  base: process.env.GITHUB_PAGES ? '/wallpapers_motion/' : '/',
+export default defineConfig(({ mode }) => ({
+  // Pages serves from /<repo>/, Electron loads from file:// (relative), dev from /
+  base: mode === 'electron' ? './' : (process.env.GITHUB_PAGES ? '/wallpapers_motion/' : '/'),
   plugins: [react(), exportServer()],
   server: {
     port: 5175,
@@ -117,4 +117,4 @@ export default defineConfig({
     },
   },
   optimizeDeps: { exclude: ['@huggingface/transformers'] },
-})
+}))

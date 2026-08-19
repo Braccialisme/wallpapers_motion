@@ -203,7 +203,14 @@ export default function App() {
   // Save to a real file on disk. First save asks where; later saves overwrite it.
   const doSave = async (forceDialog = false) => {
     const p = useStore.getState().project
-    putProject(projectName(), p)   // browser crash-net in parallel
+    putProject(projectName(), p)   // crash-net
+    // desktop app: native OS dialog + real file path
+    if (window.desktop) {
+      const path = await window.desktop.save({ name: projectName(), data: JSON.stringify(p),
+        pathHint: forceDialog ? null : fileHandle.current })
+      if (path) { fileHandle.current = path; setUI({ status: 'saved to ' + path.split(/[\/]/).pop() }) }
+      return
+    }
     if (!fsSupported) { downloadProject(p, projectName()); setUI({ status: 'downloaded project file' }); return }
     try {
       if (!fileHandle.current || forceDialog) fileHandle.current = await pickSave(projectName())
@@ -215,7 +222,12 @@ export default function App() {
   const doOpenFile = async () => {
     try {
       let loaded
-      if (fsSupported) { const h = await pickOpen(); fileHandle.current = h; loaded = await readHandle(h) }
+      if (window.desktop) {
+        const r = await window.desktop.open()
+        if (!r) return
+        fileHandle.current = r.path
+        loaded = { project: JSON.parse(r.data), name: r.path.split(/[\/]/).pop().replace(/\.(shimmer\.)?json$/i, '') }
+      } else if (fsSupported) { const h = await pickOpen(); fileHandle.current = h; loaded = await readHandle(h) }
       else loaded = await uploadProject()
       const p = { ...loaded.project, name: loaded.name || loaded.project.name }
       loadProject(p)

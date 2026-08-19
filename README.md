@@ -235,3 +235,27 @@ Work is written continuously to IndexedDB in your browser. Reloading, closing th
 stopping the dev server costs nothing; the session is restored on the next visit, images
 included. The project-name menu beside the logo keeps named versions, and
 **Export JSON** produces a single self-contained file to hand to someone else.
+
+---
+
+## Desktop app (Electron)
+
+The same app in a native window — no browser middle-click quirks, native Save/Open
+dialogs, offline.
+
+```bash
+npm install        # once (pulls Electron)
+npm run desktop    # builds and launches the desktop window
+```
+
+`Save` / `Open` use real OS file dialogs and write plain `.shimmer.json` files (images
+inlined). Middle-mouse pans without the browser autoscroll. Export uses in-app WebCodecs
+(or the local `ffmpeg` if wired).
+
+Build a distributable:
+
+```bash
+npm run desktop:pack   # -> desktop-dist/ShimmerLab-portable.exe
+```
+
+(`desktop:pack` needs electron-builder to download its packaging tools on first run.)
