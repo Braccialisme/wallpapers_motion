@@ -190,6 +190,45 @@ export const useStore = create((set, get) => ({
       project: { ...s.project, layers: s.project.layers.map((l) => ({ ...l, effects: flip(l.effects) })) },
     }
   }),
+  // PARADE: the thing the brief always wanted — 4 photos as one continuous filmstrip that
+  // scrolls across the wall, so a new picture is always arriving and the wall is never empty
+  // (never paper). Packs every visible layer full-height edge-to-edge into a strip (wider than
+  // the wall), then gives each the SAME span-drift so the whole strip travels together. If the
+  // images don't even fill the wall, they're scaled up so they do. Ghost (reveal/emboss) off.
+  parade: () => set((s) => {
+    const fw = s.project.canvas.w, fh = s.project.canvas.h
+    const vis = s.project.layers.filter((l) => l.visible !== false)
+    if (!vis.length) return {}
+    let meta = vis.map((l) => { const ih = l.imgH || fh, iw = l.imgW || fw; const sc = fh / ih; return { id: l.id, sc, w: iw * sc } })
+    let W = meta.reduce((a, m) => a + m.w, 0)
+    if (W < fw && W > 0) { const boost = fw / W; meta = meta.map((m) => ({ ...m, sc: m.sc * boost, w: m.w * boost })); W = fw }  // fill wall width
+    const travel = Math.max(0, (W - fw) / 2)   // how far the strip can slide while still covering the wall
+    let x = -W / 2
+    const posById = {}
+    for (const m of meta) { posById[m.id] = { x: Math.round(x + m.w / 2), sc: m.sc }; x += m.w }
+    const HIDE = new Set(['scatterReveal', 'emboss'])
+    const layers = s.project.layers.map((l) => {
+      const p = posById[l.id]
+      // ghost off; drop any old drift (we scroll by keyframing the PLACEMENT, not a UV shift —
+      // a UV drift can't reveal content that was clipped at the wall edge before effects run)
+      let effects = (l.effects || []).filter((f) => f.type !== 'drift')
+      effects = effects.map((f) => (HIDE.has(f.type) ? { ...f, enabled: false } : f))
+      const t = l.transform
+      return { ...l, transform: p ? { ...t, x: p.x, y: 0, scale: p.sc } : t, effects }
+    })
+    // scroll the whole strip by keyframing every layer's X: at t=0 shift the strip right so its
+    // left edge sits on the wall's left edge; at t=end shift left so its right edge sits on the
+    // wall's right edge. The strip is wider than the wall, so the wall is always fully covered.
+    const dur = s.project.duration || 1
+    const kf = { ...s.project.keyframes }
+    for (const m of meta) {
+      const p = posById[m.id]; if (!p) continue
+      kf[pathT(m.id, 'x')] = [{ t: 0, v: p.x + travel }, { t: dur, v: p.x - travel }]
+      delete kf[pathT(m.id, 'y')]   // keep it on the centre line
+    }
+    return { ui: { ...s.ui, rawPhotos: true, status: 'parade — packed filmstrip scrolling across the wall, no paper' },
+             project: { ...s.project, layers, keyframes: kf } }
+  }),
   setParam: (target, fxId, key, value) => set((s) => {
     const up = (arr) => arr.map((f) => (f.id === fxId ? { ...f, params: { ...f.params, [key]: value } } : f))
     if (target === 'global') return { project: { ...s.project, globalEffects: up(s.project.globalEffects) } }
