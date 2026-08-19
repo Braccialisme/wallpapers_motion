@@ -294,6 +294,8 @@ export const useStore = create((set, get) => ({
   loadProject: (p) => set(() => ({ project: migrate(p), ui: { ...get().ui, time: 0, selectedLayer: p.layers[0]?.id ?? null } })),
 }))
 
+if (import.meta.env.DEV) window.useStore = useStore   // dev handle for debugging/inspection
+
 // ------------------------------------------------------------------- undo/redo
 // Snapshot the project before a change. Rapid changes within one gesture (a slider
 // drag) coalesce into a single history step so one Ctrl+Z undoes the whole gesture.

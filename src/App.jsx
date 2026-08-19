@@ -191,6 +191,31 @@ export default function App() {
     setUI({ status: 'fitted all layers into the frame' })
   }
 
+  // Fill the wall edge-to-edge with NO paper showing. Each image gets a slot sized to its
+  // aspect; the slots tile the wall exactly, and every image is scaled to COVER its slot
+  // (full height, width overflow cropped by the neighbour on top). Slots sum to the wall
+  // width, so there are zero gaps -> paper can never show through.
+  const fillWall = () => {
+    const st = useStore.getState()
+    const layers = st.project.layers.filter((l) => l.visible !== false)
+    if (!layers.length) return
+    const fw = st.project.canvas.w, fh = st.project.canvas.h
+    const items = layers.map((l) => {
+      const iw = l.imgW || fw, ih = l.imgH || fh
+      return { id: l.id, iw, ih, a: iw / ih }
+    })
+    const A = items.reduce((s, i) => s + i.a, 0) || 1
+    let xl = -fw / 2
+    for (const it of items) {
+      const slotW = fw * it.a / A
+      const scale = Math.max(fh / it.ih, slotW / it.iw)   // cover the slot in both dims
+      updateTransform(it.id, { x: Math.round(xl + slotW / 2), y: 0, scale })
+      xl += slotW
+    }
+    if ((st.project.canvas.margin ?? 1) > 0) { /* stay in pasteboard, layout is inside the wall anyway */ }
+    setUI({ status: 'filled the wall — images cover-cropped edge to edge, no paper' })
+  }
+
   const runDepth = async (layerId) => {
     const st = useStore.getState()
     const layer = st.project.layers.find((l) => l.id === layerId)
@@ -349,6 +374,7 @@ export default function App() {
       <LayersPanel
         onFiles={handleFiles}
         onFitAll={fitAllToFrame}
+        onFillWall={fillWall}
         onRedepthAll={() => {
           depthCache.clear()
           for (const l of useStore.getState().project.layers) runDepth(l.id)
