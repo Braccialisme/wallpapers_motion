@@ -49,13 +49,18 @@ export default function Viewport({ engineRef, onReady }) {
 
   // keep the scaled canvas overlapping the viewport so a pan/zoom can never lose it
   const clampView = (v) => {
+    let z = Math.min(12, Math.max(1, v.z))
+    if (!isFinite(z)) z = 1
     const r = wrapRef.current?.getBoundingClientRect()
-    if (!r) return v
-    const z = Math.min(12, Math.max(1, v.z))
-    const mx = (r.width * (z - 1)) / 2 + r.width * 0.15
-    const my = (r.height * (z - 1)) / 2 + r.height * 0.15
-    return { z, x: Math.max(-mx, Math.min(mx, v.x)), y: Math.max(-my, Math.min(my, v.y)) }
+    // at ~1x (and any bad state) the canvas is locked centred — it can never be lost
+    if (!r || z <= 1.001) return { z: 1, x: 0, y: 0 }
+    // content always fully covers the viewport: cannot pan past its own edges
+    const mx = (r.width * (z - 1)) / 2, my = (r.height * (z - 1)) / 2
+    const x = Math.max(-mx, Math.min(mx, isFinite(v.x) ? v.x : 0))
+    const y = Math.max(-my, Math.min(my, isFinite(v.y) ? v.y : 0))
+    return { z, x, y }
   }
+  const resetView = () => setView({ z: 1, x: 0, y: 0 })
   const onWheel = (e) => {
     e.preventDefault()
     const f = Math.exp(-e.deltaY * 0.0015)
@@ -122,6 +127,7 @@ export default function Viewport({ engineRef, onReady }) {
       <div className="viewwrap" ref={wrapRef} onWheel={onWheel} onPointerDown={startPan}
         onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
         onAuxClick={(e) => e.preventDefault()}
+        onDoubleClick={(e) => { if (!ui.cursorEdit) resetView() }}
         style={{ cursor: panRef.current ? 'grabbing' : ui.cursorEdit ? 'crosshair' : 'default' }}>
         <div ref={innerRef} className="viewinner"
           style={{ width: '100%', maxWidth: 1400, aspectRatio: aspect,
@@ -174,7 +180,7 @@ export default function Viewport({ engineRef, onReady }) {
           Cursor {ui.cursorEdit ? '●' : '○'}
         </button>
         <span className="mono" style={{ color: 'var(--faint)' }}>{Math.round(view.z * 100)}%</span>
-        <button className="btn ico" title="reset view" onClick={() => setView({ z: 1, x: 0, y: 0 })}>⟳</button>
+        <button className="btn ico" title="reset view (double-click canvas)" onClick={resetView}>⟳ fit</button>
         <span className="mono">{project.canvas.w}×{project.canvas.h}</span>
         <span style={{ flex: 1 }} />
         <span>preview {Math.min(ui.previewWidth, project.canvas.w)}px</span>

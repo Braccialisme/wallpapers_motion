@@ -34,11 +34,15 @@ void main(){
     field = length(q) / max(p_radius, 0.001);
   }
   else {
-    // travel: the brush leaves a per-pixel "touched at" time; time since touch
-    // becomes a local progress, and the image resolves near->far behind it.
-    float touched = uHasTouch > 0.5 ? texture2D(uTouch, vUv).r : 1e9;
-    prog = clamp((uTime - touched) / max(p_travelDur, 0.01), 0.0, 1.25);
-    field = 1.0 - d;
+    // travel: the brush leaves a per-pixel "touched at" time; time since touch becomes a
+    // local progress and the image resolves near->far behind it. With NO cursor path the
+    // image shows fully (never silently hidden just because the effect is present).
+    if (uHasTouch < 0.5) { prog = 1.25; field = 0.0; }
+    else {
+      float touched = texture2D(uTouch, vUv).r;
+      prog = clamp((uTime - touched) / max(p_travelDur, 0.01), 0.0, 1.25);
+      field = 1.0 - d;
+    }
   }
 
   // ---- stipple: scatter the threshold so it grains in rather than wipes ----

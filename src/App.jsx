@@ -11,7 +11,7 @@ import Timeline from './ui/Timeline.jsx'
 import { useShortcuts, HelpModal } from './ui/Shortcuts.jsx'
 import ProjectMenu from './ui/ProjectMenu.jsx'
 import GuideModal from './ui/Guide.jsx'
-import { saveAutosave, loadAutosave, debounce, putProject } from './engine/storage.js'
+import { saveAutosave, loadAutosave, loadAutosavePrev, debounce, putProject } from './engine/storage.js'
 import { fsSupported, pickSave, pickOpen, writeHandle, readHandle, downloadProject, uploadProject } from './engine/fileio.js'
 
 const readDataURL = (file) => new Promise((res, rej) => {
@@ -102,7 +102,8 @@ export default function App() {
   useEffect(() => {
     (async () => {
       try {
-        const p = await loadAutosave()
+        let p = await loadAutosave()
+        if (!p?.layers?.length) { const prev = await loadAutosavePrev(); if (prev?.layers?.length) p = prev }
         if (p?.layers?.length) {
           loadProject(p)
           setUI({ status: 'restored your last session' })
@@ -116,7 +117,7 @@ export default function App() {
     })()
   }, [])
 
-  const autosave = useRef(debounce((p) => { saveAutosave(p).catch(() => {}) }, 700)).current
+  const autosave = useRef(debounce((p) => { saveAutosave(p).catch(() => {}) }, 300)).current
   useEffect(() => {
     if (!restored.current) return      // don't overwrite the save before it is read
     autosave(project)

@@ -8,6 +8,7 @@
 const DB = 'shimmerlab'
 const STORE = 'projects'
 const AUTOSAVE = '__autosave__'
+const AUTOSAVE_PREV = '__autosave_prev__'
 
 let dbPromise = null
 function open() {
@@ -51,8 +52,13 @@ export const listProjects = () =>
       .sort((a, b) => b.savedAt - a.savedAt)
       .map((r) => ({ name: r.name, savedAt: r.savedAt })))
 
-export const saveAutosave = (project) => putProject(AUTOSAVE, project)
+// keep the previous autosave as a fallback, so one bad write never loses everything
+export async function saveAutosave(project) {
+  try { const cur = await getProject(AUTOSAVE); if (cur) await putProject(AUTOSAVE_PREV, cur) } catch {}
+  return putProject(AUTOSAVE, project)
+}
 export const loadAutosave = () => getProject(AUTOSAVE)
+export const loadAutosavePrev = () => getProject(AUTOSAVE_PREV)
 
 /** Trailing debounce — the autosave should not fight a slider drag. */
 export function debounce(fn, ms = 700) {
