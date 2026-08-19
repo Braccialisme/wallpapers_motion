@@ -302,7 +302,7 @@ export default class Engine {
     const fw = project.canvas.w, fh = project.canvas.h            // the export FRAME
     // preview renders a WORLD larger than the frame (a plan de travail) so layers can be
     // parked in the surround; export renders the frame only (frameOnly:true, margin 0).
-    const m = opts.frameOnly ? 0 : (project.canvas.margin ?? 0.5)
+    const m = opts.frameOnly ? 0 : (project.canvas.margin ?? 1.0)
     const canvasW = Math.round(fw * (1 + 2 * m)), canvasH = Math.round(fh * (1 + 2 * m))
     // the frame's rect inside the world, normalised — reveal/effects map through this
     const fr = m > 0 ? m / (1 + 2 * m) : 0, frs = 1 / (1 + 2 * m)
@@ -452,7 +452,7 @@ export default class Engine {
     // ---- present
     const target = opts.target ?? null
     r.setRenderTarget(target)
-    r.setClearColor(0x111111, 1)
+    r.setClearColor(0x0a0a0b, 1)   // dark pasteboard void
     r.clear(true, false, false)
     this.blitMat.uniforms.uTex.value = src.texture
     this.blitMat.uniforms.uOpacity.value = 1

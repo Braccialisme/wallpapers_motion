@@ -14,13 +14,18 @@ export default {
 void main(){
   vec4 top = texture2D(uTex, vUv);
 
-  vec2 px = vUv * uRes;
+  // paper only fills the export frame; the surround is the dark pasteboard, so anything
+  // parked out there just floats on the void (this passes it straight through)
+  vec2 fuv = (vUv - uFrameRect.xy) / uFrameRect.zw;
+  if (fuv.x < 0.0 || fuv.x > 1.0 || fuv.y < 0.0 || fuv.y > 1.0) { gl_FragColor = top; return; }
+
+  vec2 px = fuv * uRes * uFrameRect.zw;
   float grain  = (hash21(floor(px)) - 0.5) * p_grain;
   float fiber  = (fbm(vec2(px.x / max(p_fiberLen*uScale,1.0), px.y * 0.9)) - 0.5) * p_fibers;
 
   vec3 paper = p_tint + grain + fiber;
 
-  vec2 q = (vUv - 0.5) * 2.0;
+  vec2 q = (fuv - 0.5) * 2.0;
   paper *= 1.0 - p_vignette * (0.06 * q.y * q.y + 0.04 * q.x * q.x) * 6.0;
 
   // composite whatever is above over the paper

@@ -26,7 +26,7 @@ export default function Viewport({ engineRef, onReady }) {
         s.setUI({ time: t })
       }
       // preview renders the WORLD (frame + surround); width is the world width
-      const wf = 1 + 2 * (project.canvas.margin ?? 0.5)
+      const wf = 1 + 2 * (project.canvas.margin ?? 1.0)
       const pw = Math.round(Math.min(ui.previewWidth, project.canvas.w) * wf)
       const ph = Math.max(2, Math.round((pw * project.canvas.h) / project.canvas.w))
       try {
@@ -44,7 +44,7 @@ export default function Viewport({ engineRef, onReady }) {
   const removeCursorPoint = useStore((s) => s.removeCursorPoint)
 
   // world / frame geometry ---------------------------------------------------
-  const m = project.canvas.margin ?? 0.5
+  const m = project.canvas.margin ?? 1.0
   const fr = m > 0 ? m / (1 + 2 * m) : 0     // frame origin within the world (normalised)
   const frs = 1 / (1 + 2 * m)                // frame size within the world
   const fitZ = 1 / frs                       // zoom that makes the frame fill the viewport
@@ -131,10 +131,9 @@ export default function Viewport({ engineRef, onReady }) {
           {/* the export frame (artboard) outline; everything outside is the work surface */}
           <svg viewBox={`0 0 ${AX} 100`} preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            <rect x="0" y="0" width={AX} height="100" fill="rgba(0,0,0,.42)" />
-            <rect x={fr * AX} y={fr * 100} width={frs * AX} height={frs * 100} fill="black" />
+            {/* the export frame outline only — the surround is the dark pasteboard itself */}
             <rect x={fr * AX} y={fr * 100} width={frs * AX} height={frs * 100}
-              fill="none" stroke="rgba(255,255,255,.55)" strokeWidth="1.5" strokeDasharray="0"
+              fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="1.5"
               vectorEffect="non-scaling-stroke" />
           </svg>
 
