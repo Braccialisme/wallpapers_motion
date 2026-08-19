@@ -117,4 +117,51 @@ export const PRESETS = {
       st.addCursorPoint(dur, 0.98, 0.5)
     },
   },
+
+  // ---- experimental (fun branch) ----
+
+  stagedGarden: {
+    name: 'Staged reveal (paper→depth→colour)',
+    apply: (st) => {
+      ensureGlobal(st, 'paper')
+      const id = selected(st)
+      if (!id) return
+      clearEffects(st, id)
+      const rev = st.addEffect(id, 'scatterReveal')
+      st.setParam(id, rev, 'driver', 0)
+      st.setParam(id, rev, 'scatter', 0.55)
+      st.setParam(id, rev, 'softness', 0.12)
+      const emb = st.addEffect(id, 'emboss')
+      st.setParam(id, emb, 'stages', true)     // the three-stage look
+      st.clearKeys(`L:${id}:E:${rev}:progress`)
+      st.addKey(`L:${id}:E:${rev}:progress`, 0, 0)
+      st.addKey(`L:${id}:E:${rev}:progress`, st.project.duration * 0.9, 1.15)
+    },
+  },
+
+  saberOutline: {
+    name: 'Saber outline (energy glow)',
+    apply: (st) => {
+      const id = selected(st)
+      if (!id) return
+      clearEffects(st, id)
+      const s = st.addEffect(id, 'saber')
+      st.setParam(id, s, 'keepImage', true)
+      st.clearKeys(`L:${id}:E:${s}:draw`)
+      st.addKey(`L:${id}:E:${s}:draw`, 0, 0)                       // draw the glow on L→R
+      st.addKey(`L:${id}:E:${s}:draw`, st.project.duration * 0.8, 1.2)
+      ensureGlobal(st, 'bloom')
+    },
+  },
+
+  gilded: {
+    name: 'Gilded (gold-leaf shimmer)',
+    apply: (st) => {
+      const id = selected(st)
+      if (!id) return
+      clearEffects(st, id)
+      st.addEffect(id, 'goldLeaf')
+      ensureGlobal(st, 'bloom')
+    },
+  },
 }
