@@ -13,6 +13,7 @@ export const KEYS = [
   ['⌫', 'delete selected keyframe'],
   ['⌘/Ctrl Z', 'undo'],
   ['⌘/Ctrl ⇧ Z', 'redo'],
+  ['⌘/Ctrl S', 'save to file'],
   ['?', 'this list'],
 ]
 

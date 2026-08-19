@@ -12,6 +12,7 @@ import { useShortcuts, HelpModal } from './ui/Shortcuts.jsx'
 import ProjectMenu from './ui/ProjectMenu.jsx'
 import GuideModal from './ui/Guide.jsx'
 import { saveAutosave, loadAutosave, debounce, putProject } from './engine/storage.js'
+import { fsSupported, pickSave, pickOpen, writeHandle, readHandle, downloadProject, uploadProject } from './engine/fileio.js'
 
 const readDataURL = (file) => new Promise((res, rej) => {
   const r = new FileReader()
@@ -53,6 +54,16 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [engineEpoch, setEngineEpoch] = useState(0)   // bumps whenever a new engine is created
   useShortcuts()
+  const fileHandle = useRef(null)
+
+  // kill the browser middle-click default (autoscroll orb) across the whole app;
+  // our own middle-drag pan still works because it uses pointer events, not the default
+  useEffect(() => {
+    const kill = (e) => { if (e.button === 1) e.preventDefault() }
+    document.addEventListener('mousedown', kill)
+    document.addEventListener('auxclick', kill)
+    return () => { document.removeEventListener('mousedown', kill); document.removeEventListener('auxclick', kill) }
+  }, [])
 
   // default ground so the canvas is never a black void for the team
   useEffect(() => {
@@ -182,15 +193,35 @@ export default function App() {
     const eng = engineRef.current
     if (eng) eng.textures.forEach((t, k) => { t.dispose(); eng.textures.delete(k) })
     newProject()
+    fileHandle.current = null
     if (useStore.getState().project.globalEffects.length === 0) addEffect('global', 'paper')
     setUI({ status: 'new project' })
   }
 
-  const doSave = async () => {
+  const projectName = () => (useStore.getState().project.name || 'wall').trim() || 'wall'
+
+  // Save to a real file on disk. First save asks where; later saves overwrite it.
+  const doSave = async (forceDialog = false) => {
     const p = useStore.getState().project
-    const name = (p.name || 'wall').trim() || 'wall'
-    await putProject(name, p)
-    setUI({ status: `saved “${name}”` })
+    putProject(projectName(), p)   // browser crash-net in parallel
+    if (!fsSupported) { downloadProject(p, projectName()); setUI({ status: 'downloaded project file' }); return }
+    try {
+      if (!fileHandle.current || forceDialog) fileHandle.current = await pickSave(projectName())
+      await writeHandle(fileHandle.current, p)
+      setUI({ status: `saved to ${fileHandle.current.name}` })
+    } catch (e) { if (e.name !== 'AbortError') setUI({ status: 'save failed: ' + e.message }) }
+  }
+
+  const doOpenFile = async () => {
+    try {
+      let loaded
+      if (fsSupported) { const h = await pickOpen(); fileHandle.current = h; loaded = await readHandle(h) }
+      else loaded = await uploadProject()
+      const p = { ...loaded.project, name: loaded.name || loaded.project.name }
+      loadProject(p)
+      for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id)
+      setUI({ status: `opened ${loaded.name}` })
+    } catch (e) { if (e.name !== 'AbortError') setUI({ status: 'open failed: ' + e.message }) }
   }
 
   const applyPreset = (key) => {
@@ -231,21 +262,14 @@ export default function App() {
     await exportStill(renderFrame, st.project.canvas, st.ui.time, st.project.name || 'wall')
   }
 
-  // ------------------------------------------------------------- save / load
-  const saveProject = () => {
-    const blob = new Blob([JSON.stringify(useStore.getState().project)], { type: 'application/json' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = (project.name || 'project') + '.shimmer.json'
-    a.click()
-  }
-
-  // Textures are rebuilt by the ensure-textures effect; here we only need the depth.
-  const openProject = async (file) => {
-    const p = JSON.parse(await file.text())
-    loadProject(p)
-    for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id)
-  }
+  // Ctrl/Cmd+S saves to the current file (or asks where on the first save)
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); doSave(false) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const exp = ui.exporting
 
@@ -254,7 +278,7 @@ export default function App() {
       <div className="topbar">
         <span className="brand">Shimmer<em>Lab</em></span>
         <button className="btn sm" onClick={doNewProject}>New</button>
-        <button className="btn sm" onClick={doSave} title="save this named project to the browser">Save</button>
+        <button className="btn sm pri" onClick={() => doSave(false)} title="save to a file on your computer (Ctrl+S)">Save</button>
         <ProjectMenu onLoad={(p) => { loadProject(p); for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id) }} />
 
         <select defaultValue="" style={{ minWidth: 130 }}
@@ -278,11 +302,8 @@ export default function App() {
         <span className="status">{busy ? 'loading images…' : ui.status}</span>
 
         <button className="btn sm" onClick={() => setUI({ showGuide: true })}>Guide</button>
-        <button className="btn sm" onClick={saveProject}>Export JSON</button>
-        <label className="btn sm">
-          Open<input type="file" accept=".json"
-            onChange={(e) => { if (e.target.files[0]) openProject(e.target.files[0]); e.target.value = '' }} />
-        </label>
+        <button className="btn sm" onClick={doOpenFile}>Open</button>
+        <button className="btn sm" title="save as a new file" onClick={() => doSave(true)}>Save As</button>
         <button className="btn sm" onClick={doStill} disabled={!!exp}>PNG</button>
         <button className="btn pri" onClick={doExport} disabled={!!exp}>
           {exp ? `${exp.phase} ${exp.frame}/${exp.total}` : 'Export MP4'}
