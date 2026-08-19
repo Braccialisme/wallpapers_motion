@@ -217,6 +217,17 @@ export const useStore = create((set, get) => ({
     project: { ...s.project, cursor: { ...s.project.cursor, points: s.project.cursor.points.filter((_, j) => j !== i) } },
   })),
 
+    newProject: () => set(() => ({
+    project: {
+      name: 'wall',
+      canvas: { w: 4550, h: 1000 },
+      duration: 20, fps: 24,
+      layers: [], globalEffects: [], keyframes: {},
+      cursor: { ...DEFAULT_CURSOR },
+    },
+    ui: { ...get().ui, time: 0, playing: false, selectedLayer: null, cursorEdit: false },
+  })),
+
     loadProject: (p) => set(() => ({ project: migrate(p), ui: { ...get().ui, time: 0, selectedLayer: p.layers[0]?.id ?? null } })),
 }))
 

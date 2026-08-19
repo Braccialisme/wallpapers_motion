@@ -49,6 +49,7 @@ export default function App() {
   const updateTransform = useStore((s) => s.updateTransform)
   const addEffect = useStore((s) => s.addEffect)
   const loadProject = useStore((s) => s.loadProject)
+  const newProject = useStore((s) => s.newProject)
   const [busy, setBusy] = useState(false)
   const [engineEpoch, setEngineEpoch] = useState(0)   // bumps whenever a new engine is created
   useShortcuts()
@@ -175,6 +176,16 @@ export default function App() {
   }
 
   // ---------------------------------------------------------------- presets
+  const doNewProject = () => {
+    if (!confirm('Start a new project? This clears the current layers, effects and timeline.')) return
+    depthCache.clear()
+    const eng = engineRef.current
+    if (eng) eng.textures.forEach((t, k) => { t.dispose(); eng.textures.delete(k) })
+    newProject()
+    if (useStore.getState().project.globalEffects.length === 0) addEffect('global', 'paper')
+    setUI({ status: 'new project' })
+  }
+
   const applyPreset = (key) => {
     const p = PRESETS[key]
     if (!p) return
@@ -235,6 +246,7 @@ export default function App() {
     <div className="app">
       <div className="topbar">
         <span className="brand">Shimmer<em>Lab</em></span>
+        <button className="btn sm" onClick={doNewProject}>New</button>
         <ProjectMenu onLoad={(p) => { loadProject(p); for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id) }} />
 
         <select defaultValue="" style={{ minWidth: 130 }}

@@ -78,10 +78,10 @@ export default function Viewport({ engineRef, onReady }) {
              y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }
   }
   const onCanvasDown = (e) => {
-    if (!ui.cursorEdit || e.button !== 0) return
+    if (!useStore.getState().ui.cursorEdit || e.button !== 0) return
     e.stopPropagation()
     const p = toCanvas(e)
-    addCursorPoint(ui.time, p.x, p.y)   // add / move point at the current time
+    addCursorPoint(useStore.getState().ui.time, p.x, p.y)   // drop a point at the live playhead
   }
   const onHandleDown = (i) => (e) => {
     if (!ui.cursorEdit) return
@@ -117,7 +117,7 @@ export default function Viewport({ engineRef, onReady }) {
           {cur?.enabled && pts.length > 0 && (
             <svg viewBox="0 0 100 100" preserveAspectRatio="none"
               style={{ position: 'absolute', inset: 0, width: '100%', height: '100%',
-                       pointerEvents: ui.cursorEdit ? 'auto' : 'none' }}>
+                       pointerEvents: 'none' }}>
               {pts.length > 1 && (
                 <polyline fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="0.4" strokeDasharray="1.2 1"
                   vectorEffect="non-scaling-stroke"
@@ -127,7 +127,7 @@ export default function Viewport({ engineRef, onReady }) {
                 <circle key={i} cx={p.x * 100} cy={p.y * 100} r="1.1" vectorEffect="non-scaling-stroke"
                   fill={Math.abs(p.t - ui.time) < 0.05 ? '#fff' : 'rgba(255,255,255,.35)'}
                   stroke="#000" strokeWidth="0.3"
-                  style={{ cursor: 'grab' }}
+                  style={{ cursor: 'grab', pointerEvents: ui.cursorEdit ? 'auto' : 'none' }}
                   onPointerDown={onHandleDown(i)}
                   onDoubleClick={(e) => { e.stopPropagation(); removeCursorPoint(i) }} />
               ))}

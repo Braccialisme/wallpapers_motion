@@ -17,7 +17,29 @@ function CursorCard() {
   const setUI = useStore((s) => s.setUI)
   const cursorEdit = useStore((s) => s.ui.cursorEdit)
   const removeCursorPoint = useStore((s) => s.removeCursorPoint)
+  const addCursorPoint = useStore((s) => s.addCursorPoint)
+  const duration = useStore((s) => s.project.duration)
   const n = cursor?.points?.length || 0
+
+  const brushes = [
+    { name: 'Soft',  shape: 0, spread: 0.22, softness: 0.75 },
+    { name: 'Sharp', shape: 0, spread: 0.12, softness: 0.15 },
+    { name: 'Brush', shape: 1, spread: 0.28, softness: 0.5 },
+    { name: 'Dot',   shape: 2, spread: 0.08, softness: 0.4 },
+  ]
+  const setPath = (pts) => {
+    const cur = useStore.getState().project.cursor
+    ;(cur.points || []).slice().forEach((_, i, a) => removeCursorPoint(a.length - 1 - i))
+    setCursor({ enabled: true })
+    pts.forEach((p) => addCursorPoint(p.t * duration, p.x, p.y))
+  }
+  const paths = {
+    'Sweep →':  [{t:0,x:0.03,y:0.5},{t:1,x:0.97,y:0.5}],
+    'Diagonal': [{t:0,x:0.03,y:0.15},{t:1,x:0.97,y:0.85}],
+    'Down ↓':   [{t:0,x:0.5,y:0.03},{t:1,x:0.5,y:0.97}],
+    'Zigzag':   [{t:0,x:0.03,y:0.2},{t:0.33,x:0.36,y:0.8},{t:0.66,x:0.7,y:0.2},{t:1,x:0.97,y:0.8}],
+    'Circle':   Array.from({length:9},(_, i)=>({t:i/8, x:0.5+0.42*Math.cos(i/8*6.283), y:0.5+0.42*Math.sin(i/8*6.283)})),
+  }
   return (
     <div className="card">
       <div className="prm">
@@ -45,6 +67,23 @@ function CursorCard() {
         <div className="prm-top"><span className="prm-lbl">Softness</span><span className="prm-val">{(cursor?.softness ?? 0.5).toFixed(2)}</span></div>
         <input type="range" min={0} max={1} step={0.02} value={cursor?.softness ?? 0.5}
           onChange={(e) => setCursor({ softness: Number(e.target.value) })} />
+      </div>
+      <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Brush presets</span></div>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          {brushes.map((b) => (
+            <button key={b.name} className="btn sm"
+              onClick={() => setCursor({ shape: b.shape, spread: b.spread, softness: b.softness })}>{b.name}</button>
+          ))}
+        </div>
+      </div>
+      <div className="prm">
+        <div className="prm-top"><span className="prm-lbl">Path presets</span></div>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
+          {Object.entries(paths).map(([name, pts]) => (
+            <button key={name} className="btn sm" onClick={() => setPath(pts)}>{name}</button>
+          ))}
+        </div>
       </div>
       <button className={'btn sm' + (cursorEdit ? ' on' : '')} style={{ width: '100%', justifyContent: 'center', marginTop: 6 }}
         onClick={() => setUI({ cursorEdit: !cursorEdit })}>
