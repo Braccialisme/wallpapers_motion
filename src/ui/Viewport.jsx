@@ -47,10 +47,19 @@ export default function Viewport({ engineRef, onReady }) {
   const panRef = useRef(null)
   const wrapRef = useRef()
 
+  // keep the scaled canvas overlapping the viewport so a pan/zoom can never lose it
+  const clampView = (v) => {
+    const r = wrapRef.current?.getBoundingClientRect()
+    if (!r) return v
+    const z = Math.min(12, Math.max(1, v.z))
+    const mx = (r.width * (z - 1)) / 2 + r.width * 0.15
+    const my = (r.height * (z - 1)) / 2 + r.height * 0.15
+    return { z, x: Math.max(-mx, Math.min(mx, v.x)), y: Math.max(-my, Math.min(my, v.y)) }
+  }
   const onWheel = (e) => {
     e.preventDefault()
     const f = Math.exp(-e.deltaY * 0.0015)
-    setView((v) => ({ ...v, z: Math.min(12, Math.max(1, v.z * f)) }))
+    setView((v) => clampView({ ...v, z: v.z * f }))
   }
   const startPan = (e) => {
     if (ui.cursorEdit && e.button === 0) return   // left is for the gizmo in edit mode
@@ -61,8 +70,8 @@ export default function Viewport({ engineRef, onReady }) {
   useEffect(() => {
     const move = (e) => {
       if (!panRef.current) return
-      setView((v) => ({ ...v, x: panRef.current.ox + (e.clientX - panRef.current.sx),
-                              y: panRef.current.oy + (e.clientY - panRef.current.sy) }))
+      setView((v) => clampView({ ...v, x: panRef.current.ox + (e.clientX - panRef.current.sx),
+                                       y: panRef.current.oy + (e.clientY - panRef.current.sy) }))
     }
     const up = () => { panRef.current = null }
     window.addEventListener('pointermove', move)

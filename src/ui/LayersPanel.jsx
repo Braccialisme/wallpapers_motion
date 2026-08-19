@@ -16,6 +16,7 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
   const updateLayer = useStore((s) => s.updateLayer)
   const copyChain = useStore((s) => s.copyChain)
   const pasteChain = useStore((s) => s.pasteChain)
+  const clearLayerEffects = useStore((s) => s.clearLayerEffects)
   const hasClip = !!ui.fxClipboard
   const fileRef = useRef()
   const [hot, setHot] = useState(false)
@@ -70,6 +71,7 @@ export default function LayersPanel({ onFiles, onRedepthAll }) {
           <div className="row">
             <button className="btn sm grow" title="copy this layer's effect chain + keyframes" onClick={() => copyChain(sel)}>copy FX</button>
             <button className="btn sm grow" title="paste the copied effect chain onto this layer" disabled={!hasClip} onClick={() => pasteChain(sel)}>paste FX</button>
+            <button className="btn sm grow" title="remove ALL effects on this layer (stops drift/warp/reveal)" onClick={() => clearLayerEffects(sel)}>clear FX</button>
           </div>
           </>
         )}

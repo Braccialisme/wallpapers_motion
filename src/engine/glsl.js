@@ -13,6 +13,7 @@ uniform float uScale;       // renderW / canvasW  -> scale pixel-based params
 uniform float uSeed;
 uniform sampler2D uTouch;   // canvas-space: time the cursor first reached each pixel
 uniform float uHasTouch;    // 1 if a cursor path exists
+uniform sampler2D uCover;   // the layer's ORIGINAL placed image (alpha = image footprint)
 
 varying vec2 vUv;
 

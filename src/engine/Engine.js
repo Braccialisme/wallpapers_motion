@@ -230,7 +230,7 @@ export default class Engine {
       uTex: { value: null }, uDepth: { value: null },
       uRes: { value: new THREE.Vector2() }, uCanvas: { value: new THREE.Vector2() },
       uTime: { value: 0 }, uProgress: { value: 0 }, uScale: { value: 1 }, uSeed: { value: 0 },
-      uTouch: { value: null }, uHasTouch: { value: 0 },
+      uTouch: { value: null }, uHasTouch: { value: 0 }, uCover: { value: null },
     }
   }
 
@@ -275,6 +275,7 @@ export default class Engine {
     u.uSeed.value = ctx.seed || 0
     if (u.uTouch) u.uTouch.value = ctx.touchTex || null
     if (u.uHasTouch) u.uHasTouch.value = ctx.touchTex ? 1 : 0
+    if (u.uCover) u.uCover.value = ctx.coverTex || null
     for (const [k, p] of Object.entries(def.params)) {
       const key = 'p_' + k
       if (!u[key]) continue
@@ -364,7 +365,7 @@ export default class Engine {
       let src = rtLayer
       let slot = 0
       const pool = [rtA, rtB]
-      const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: layer.seed || 0, touchTex }
+      const ctx = { w, h, canvasW, canvasH, time, progress, scale, seed: layer.seed || 0, touchTex, coverTex: rtLayer.texture }
 
       for (const fx of layer.effects || []) {
         const dst = pool[slot % 2]

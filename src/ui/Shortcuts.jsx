@@ -4,7 +4,7 @@ import { useStore } from '../store.js'
 export const KEYS = [
   ['Space', 'play / pause'],
   ['← →', 'step one frame'],
-  ['⇧ ← →', 'jump one second'],
+  ['⇧ ← / →', 'jump to start / end'],
   ['Home / End', 'start / end'],
   ['D', 'toggle depth view'],
   ['L', 'toggle loop'],
@@ -50,8 +50,12 @@ export function useShortcuts() {
 
       switch (e.key) {
         case ' ': s.setUI({ playing: !ui.playing }); e.preventDefault(); break
-        case 'ArrowRight': step(e.shiftKey ? 1 : frame); break
-        case 'ArrowLeft': step(e.shiftKey ? -1 : -frame); break
+        case 'ArrowRight':
+          if (e.shiftKey) { s.setUI({ time: project.duration, playing: false }); e.preventDefault() } else step(frame)
+          break
+        case 'ArrowLeft':
+          if (e.shiftKey) { s.setUI({ time: 0, playing: false }); e.preventDefault() } else step(-frame)
+          break
         case 'Home': s.setUI({ time: 0, playing: false }); e.preventDefault(); break
         case 'End': s.setUI({ time: project.duration, playing: false }); e.preventDefault(); break
         case 'd': case 'D': s.setUI({ viewDepth: !ui.viewDepth }); break

@@ -22,9 +22,12 @@ void main(){
 
   vec3 ghostCol = clamp(p_tint * (1.0 + (shade - 0.62) * p_relief), 0.0, 1.0);
 
-  // fill in wherever the image is not (yet) revealed
-  float need = (1.0 - src.a) * p_ghost;
-  gl_FragColor = vec4(mix(ghostCol, src.rgb, src.a), clamp(src.a + need, 0.0, 1.0));
+  // coverage = the image footprint; only paint inside it, and paint it OPAQUE so
+  // stacked layers and the paper below never bleed through (that was the muddy opacity)
+  float cov = texture2D(uCover, vUv).a;
+  vec3 hidden = mix(src.rgb, ghostCol, p_ghost);      // how paper-like the un-revealed area looks
+  vec3 col = mix(hidden, src.rgb, clamp(src.a, 0.0, 1.0));
+  gl_FragColor = vec4(col, cov);
 }
 `,
 }

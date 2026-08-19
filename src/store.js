@@ -219,6 +219,12 @@ export const useStore = create((set, get) => ({
   }),
 
   pruneOrphanKeys: () => set((s) => ({ project: { ...s.project, keyframes: pruneKeyframes(s.project) } })),
+  clearLayerEffects: (layerId) => set((s) => {
+    const kf = { ...s.project.keyframes }
+    Object.keys(kf).forEach((p) => { if (p.startsWith(`L:${layerId}:E:`)) delete kf[p] })
+    return { project: { ...s.project, keyframes: kf,
+      layers: s.project.layers.map((l) => (l.id === layerId ? { ...l, effects: [] } : l)) } }
+  }),
   moveEffect: (target, fxId, dir) => set((s) => {
     const mv = (arr) => {
       const a = [...arr]; const i = a.findIndex((f) => f.id === fxId); const j = i + dir
