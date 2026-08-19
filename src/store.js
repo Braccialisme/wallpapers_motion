@@ -178,6 +178,18 @@ export const useStore = create((set, get) => ({
     if (target === 'global') return { project: { ...s.project, globalEffects: up(s.project.globalEffects) } }
     return { project: { ...s.project, layers: s.project.layers.map((l) => (l.id === target ? { ...l, effects: up(l.effects) } : l)) } }
   }),
+  // Toggle every layer between the reveal/emboss look and plain photos. rawPhotos=true
+  // disables scatterReveal+emboss on all layers (the white "ghost" vanishes, the placed
+  // photo shows); toggling back re-enables them. Non-destructive — just the enabled flag.
+  toggleRawPhotos: () => set((s) => {
+    const raw = !s.ui.rawPhotos
+    const HIDE = new Set(['scatterReveal', 'emboss'])
+    const flip = (arr = []) => arr.map((f) => (HIDE.has(f.type) ? { ...f, enabled: !raw } : f))
+    return {
+      ui: { ...s.ui, rawPhotos: raw, status: raw ? 'showing plain photos (reveal off)' : 'reveal back on' },
+      project: { ...s.project, layers: s.project.layers.map((l) => ({ ...l, effects: flip(l.effects) })) },
+    }
+  }),
   setParam: (target, fxId, key, value) => set((s) => {
     const up = (arr) => arr.map((f) => (f.id === fxId ? { ...f, params: { ...f.params, [key]: value } } : f))
     if (target === 'global') return { project: { ...s.project, globalEffects: up(s.project.globalEffects) } }

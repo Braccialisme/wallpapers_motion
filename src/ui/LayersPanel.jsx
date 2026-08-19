@@ -17,6 +17,7 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
   const copyChain = useStore((s) => s.copyChain)
   const pasteChain = useStore((s) => s.pasteChain)
   const clearLayerEffects = useStore((s) => s.clearLayerEffects)
+  const toggleRawPhotos = useStore((s) => s.toggleRawPhotos)
   const hasClip = !!ui.fxClipboard
   const fileRef = useRef()
   const [hot, setHot] = useState(false)
@@ -28,6 +29,9 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
     <div className="panel">
       <div className="sec">
         <div className="sec-title">Layers<span className="spacer" />
+          <button className={'btn sm' + (ui.rawPhotos ? ' on' : '')}
+            title="show your plain placed photos (turns the reveal/emboss ghost off on every layer). Click again to bring the reveal back."
+            onClick={toggleRawPhotos}>{ui.rawPhotos ? 'Photos ●' : 'Photos ○'}</button>
           <button className="btn sm" title="cover-crop every layer edge to edge to fill the wall — no gaps, no paper ever shows" onClick={onFillWall}>Fill wall</button>
           <button className="btn sm" title="tile every layer side by side inside the frame (may leave paper gaps)" onClick={onFitAll}>Fit all</button>
           <button className="btn sm" onClick={() => fileRef.current.click()}>Add</button>
