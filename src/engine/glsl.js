@@ -15,6 +15,10 @@ uniform sampler2D uTouch;   // canvas-space: time the cursor first reached each 
 uniform float uHasTouch;    // 1 if a cursor path exists
 uniform sampler2D uCover;   // the layer's ORIGINAL placed image (alpha = image footprint)
 uniform vec4 uFrameRect;    // export frame within the rendered world: x,y,w,h (normalised)
+uniform float uAudio;       // overall audio level 0..1 (0 when audio off)
+uniform float uAudioLow;    // bass band 0..1
+uniform float uAudioMid;    // mid band 0..1
+uniform float uAudioHigh;   // treble band 0..1
 
 varying vec2 vUv;
 

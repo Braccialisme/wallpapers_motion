@@ -10,6 +10,7 @@ export default {
     sharp:    { type: 'float', min: 1, max: 40, step: 0.5, default: 12, label: 'Sharpness' },
     intensity:{ type: 'float', min: 0, max: 3, step: 0.01, default: 1.0, label: 'Shimmer intensity' },
     spread:   { type: 'float', min: 0.5, max: 5, step: 0.1, default: 1.4, label: 'Relief spread' },
+    audio:    { type: 'float', min: 0, max: 3, step: 0.01, default: 0, label: 'Audio-react (treble)' },
     tint:     { type: 'color', default: [1.0, 0.86, 0.45], label: 'Shimmer tint' },
   },
   frag: /* glsl */ `
@@ -28,7 +29,8 @@ void main(){
   float warm = clamp((src.r - src.b) * 3.0, 0.0, 1.0);
   float mask = smoothstep(p_thresh, 1.0, l) * mix(1.0, warm, p_goldOnly);
 
-  vec3 col = src.rgb + p_tint * spec * mask * p_intensity;
+  float aud = 1.0 + uAudioHigh * p_audio;        // treble makes it twinkle
+  vec3 col = src.rgb + p_tint * spec * mask * p_intensity * aud;
   gl_FragColor = vec4(col, src.a);
 }
 `,

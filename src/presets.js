@@ -1,5 +1,9 @@
 // Starting points. A preset is just a function that builds layers/effects/keys
 // through the normal store actions — nothing here is special-cased by the engine.
+import chroma from 'chroma-js'
+
+// chroma colour -> the [r,g,b] 0..1 triplet the colour params expect
+const rgb01 = (c) => { const a = chroma(c).rgb(); return [a[0] / 255, a[1] / 255, a[2] / 255] }
 
 function clearEffects(st, layerId) {
   const l = st.project.layers.find((x) => x.id === layerId)
@@ -161,6 +165,37 @@ export const PRESETS = {
       if (!id) return
       clearEffects(st, id)
       st.addEffect(id, 'goldLeaf')
+      ensureGlobal(st, 'bloom')
+    },
+  },
+
+  duotoneHeritage: {
+    name: 'Duotone (heritage palette)',
+    apply: (st) => {
+      const id = selected(st)
+      if (!id) return
+      clearEffects(st, id)
+      const d = st.addEffect(id, 'duotone')
+      // a 3-stop indigo→terracotta→gold ramp, sampled through chroma-js in Lab
+      const pal = chroma.scale(['#141433', '#8a4a2f', '#f2d06b']).mode('lab')
+      st.setParam(id, d, 'shadow', rgb01(pal(0.0)))
+      st.setParam(id, d, 'mid', rgb01(pal(0.5)))
+      st.setParam(id, d, 'high', rgb01(pal(1.0)))
+    },
+  },
+
+  saberPulse: {
+    name: 'Saber outline + audio pulse',
+    apply: (st) => {
+      const id = selected(st)
+      if (!id) return
+      clearEffects(st, id)
+      const s = st.addEffect(id, 'saber')
+      st.setParam(id, s, 'keepImage', true)
+      st.setParam(id, s, 'audio', 1.6)          // bass pumps the glow (turn Audio ● on)
+      st.clearKeys(`L:${id}:E:${s}:draw`)
+      st.addKey(`L:${id}:E:${s}:draw`, 0, 0)
+      st.addKey(`L:${id}:E:${s}:draw`, st.project.duration * 0.8, 1.2)
       ensureGlobal(st, 'bloom')
     },
   },

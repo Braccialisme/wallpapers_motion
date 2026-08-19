@@ -15,6 +15,7 @@ export default {
     spread:   { type: 'float', min: 0.5, max: 5, step: 0.1, default: 1.4, label: 'Edge sample spread' },
     draw:     { type: 'float', min: 0, max: 1.2, step: 0.005, default: 1.2, label: 'Draw front (L→R)', keyHint: true },
     drawSoft: { type: 'float', min: 0.005, max: 0.5, step: 0.005, default: 0.08, label: 'Draw softness' },
+    audio:    { type: 'float', min: 0, max: 3, step: 0.01, default: 0, label: 'Audio-react (bass)' },
     keepImage:{ type: 'bool', default: true, label: 'Keep the photo under' },
   },
   frag: /* glsl */ `
@@ -37,7 +38,8 @@ void main(){
   float vis = smoothstep(p_draw + p_drawSoft, p_draw, vUv.x);
   core *= vis; glow *= vis;
 
-  vec3 energy = p_coreCol * core + p_glowCol * glow * p_intensity;
+  float aud = 1.0 + uAudioLow * p_audio;          // bass pumps the glow
+  vec3 energy = p_coreCol * core + p_glowCol * glow * p_intensity * aud;
 
   vec3 baseCol = (p_keepImage > 0.5) ? src.rgb : vec3(0.0);
   float baseA  = (p_keepImage > 0.5) ? src.a : 0.0;

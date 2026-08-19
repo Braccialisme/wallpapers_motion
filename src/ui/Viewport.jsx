@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Engine from '../engine/Engine.js'
 import { useStore, resolveProject, cursorAt } from '../store.js'
+import { audioState, startAudio, stopAudio } from '../engine/audio.js'
 
 export default function Viewport({ engineRef, onReady }) {
   const canvasRef = useRef()
@@ -18,6 +19,7 @@ export default function Viewport({ engineRef, onReady }) {
       const now = performance.now()
       const dt = Math.min(0.1, (now - lastRef.current) / 1000)
       lastRef.current = now
+      engine.audio = audioState   // live audio-reactive values for the shaders
       const s = useStore.getState()
       const { project, ui } = s
       if (ui.playing) {
@@ -54,6 +56,7 @@ export default function Viewport({ engineRef, onReady }) {
 
   // zoom / pan ---------------------------------------------------------------
   const [view, setView] = useState({ z: fitZ, x: 0, y: 0 })
+  const [audioOn, setAudioOn] = useState(false)
   const panRef = useRef(null)
   const wrapRef = useRef()
 
@@ -180,6 +183,14 @@ export default function Viewport({ engineRef, onReady }) {
           title="edit the reveal cursor path — click to drop a point at the playhead, drag points, double-click to delete"
           onClick={() => setUI({ cursorEdit: !ui.cursorEdit })}>
           Cursor {ui.cursorEdit ? '●' : '○'}
+        </button>
+        <button className={'btn sm' + (audioOn ? ' on' : '')}
+          title="audio-reactive: let the mic drive uAudio/uAudioLow/Mid/High in the shaders (Saber, Gold-leaf react)"
+          onClick={async () => {
+            if (audioOn) { stopAudio(); setAudioOn(false) }
+            else { const ok = await startAudio(); setAudioOn(ok) }
+          }}>
+          Audio {audioOn ? '●' : '○'}
         </button>
         <span className="mono" style={{ color: 'var(--faint)' }}>{Math.round((view.z / fitZ) * 100)}%</span>
         <button className={'btn sm' + (m > 0 ? ' on' : '')}

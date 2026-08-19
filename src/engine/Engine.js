@@ -232,6 +232,7 @@ export default class Engine {
       uTime: { value: 0 }, uProgress: { value: 0 }, uScale: { value: 1 }, uSeed: { value: 0 },
       uTouch: { value: null }, uHasTouch: { value: 0 }, uCover: { value: null },
       uFrameRect: { value: new THREE.Vector4(0, 0, 1, 1) },
+      uAudio: { value: 0 }, uAudioLow: { value: 0 }, uAudioMid: { value: 0 }, uAudioHigh: { value: 0 },
     }
   }
 
@@ -278,6 +279,11 @@ export default class Engine {
     if (u.uHasTouch) u.uHasTouch.value = ctx.touchTex ? 1 : 0
     if (u.uCover) u.uCover.value = ctx.coverTex || null
     if (u.uFrameRect && ctx.frameRect) u.uFrameRect.value.set(ctx.frameRect[0], ctx.frameRect[1], ctx.frameRect[2], ctx.frameRect[3])
+    const a = this.audio || {}
+    if (u.uAudio) u.uAudio.value = a.level || 0
+    if (u.uAudioLow) u.uAudioLow.value = a.low || 0
+    if (u.uAudioMid) u.uAudioMid.value = a.mid || 0
+    if (u.uAudioHigh) u.uAudioHigh.value = a.high || 0
     for (const [k, p] of Object.entries(def.params)) {
       const key = 'p_' + k
       if (!u[key]) continue
