@@ -153,13 +153,17 @@ export default class Engine {
     if (!cur?.enabled || pts.length < 1) return null
 
     const aspect = project.canvas.w / project.canvas.h
-    const TW = 512
+    // resolution scaled to the wall — 512 was too coarse and showed stair-stepping
+    const TW = Math.min(2048, Math.max(768, Math.round(project.canvas.w / 3)))
     const TH = Math.max(2, Math.round(TW / aspect))
     const buf = new Float32Array(TW * TH).fill(1e9)   // 1e9 = never touched
     const rad = Math.max(0.01, cur.spread)
     const shapeScale = cur.shape === 2 ? 0.45 : 1      // dot is tighter
     const r = rad * shapeScale
     const fall = cur.falloff ?? 0.6
+    // stamp a soft ramp OUT to rEdge: pixels past the core resolve progressively later,
+    // so the brush edge feathers instead of hard-cutting (that was the "stairs").
+    const rEdge = r * (1 + Math.min(1.2, fall))
 
     const t0 = pts[0].t, t1 = pts[pts.length - 1].t
     const N = 700
@@ -168,19 +172,19 @@ export default class Engine {
       const pos = cursorAt(cur, t)
       if (!pos) continue
       const cxp = pos.x, cyp = pos.y
-      const x0 = Math.max(0, Math.floor((cxp - r / aspect) * TW))
-      const x1 = Math.min(TW - 1, Math.ceil((cxp + r / aspect) * TW))
-      const y0 = Math.max(0, Math.floor((cyp - r) * TH))
-      const y1 = Math.min(TH - 1, Math.ceil((cyp + r) * TH))
+      const x0 = Math.max(0, Math.floor((cxp - rEdge / aspect) * TW))
+      const x1 = Math.min(TW - 1, Math.ceil((cxp + rEdge / aspect) * TW))
+      const y0 = Math.max(0, Math.floor((cyp - rEdge) * TH))
+      const y1 = Math.min(TH - 1, Math.ceil((cyp + rEdge) * TH))
       for (let py = y0; py <= y1; py++) {
         const uy = (py + 0.5) / TH
         for (let px = x0; px <= x1; px++) {
           const ux = (px + 0.5) / TW
           const dx = (ux - cxp) * aspect, dy = uy - cyp
-          const dd = dx * dx + dy * dy
-          if (dd <= r * r) {
-            // falloff: centre reveals at t, edge a little later, so the brush edge feathers
-            const tt = t + fall * Math.sqrt(dd) / r
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist <= rEdge) {
+            // 0 at centre -> ramps up through the core and keeps ramping in the soft rim
+            const tt = t + fall * (dist / r)
             const i = py * TW + px
             if (tt < buf[i]) buf[i] = tt
           }

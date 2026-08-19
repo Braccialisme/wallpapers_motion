@@ -11,7 +11,7 @@ import Timeline from './ui/Timeline.jsx'
 import { useShortcuts, HelpModal } from './ui/Shortcuts.jsx'
 import ProjectMenu from './ui/ProjectMenu.jsx'
 import GuideModal from './ui/Guide.jsx'
-import { saveAutosave, loadAutosave, debounce } from './engine/storage.js'
+import { saveAutosave, loadAutosave, debounce, putProject } from './engine/storage.js'
 
 const readDataURL = (file) => new Promise((res, rej) => {
   const r = new FileReader()
@@ -186,6 +186,13 @@ export default function App() {
     setUI({ status: 'new project' })
   }
 
+  const doSave = async () => {
+    const p = useStore.getState().project
+    const name = (p.name || 'wall').trim() || 'wall'
+    await putProject(name, p)
+    setUI({ status: `saved “${name}”` })
+  }
+
   const applyPreset = (key) => {
     const p = PRESETS[key]
     if (!p) return
@@ -247,6 +254,7 @@ export default function App() {
       <div className="topbar">
         <span className="brand">Shimmer<em>Lab</em></span>
         <button className="btn sm" onClick={doNewProject}>New</button>
+        <button className="btn sm" onClick={doSave} title="save this named project to the browser">Save</button>
         <ProjectMenu onLoad={(p) => { loadProject(p); for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id) }} />
 
         <select defaultValue="" style={{ minWidth: 130 }}

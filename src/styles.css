@@ -150,6 +150,11 @@ canvas.view{display:block;width:100%;height:auto;background:#000}
 .kf{position:absolute;top:50%;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;background:var(--accent);
   border-radius:2px;transform:rotate(45deg);transition:.15s var(--ease)}
 .kf:hover{box-shadow:0 0 0 5px var(--accent-glow)}
+.tl-group{margin-bottom:2px}
+.tl-grouphead{display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;user-select:none;border-radius:8px;background:var(--surface)}
+.tl-grouphead:hover{background:var(--surface-2)}
+.tl-grouphead .nm{font-weight:650;letter-spacing:-.01em;font-size:12px;flex:1}
+.tl-grouphead .ct{color:var(--faint);font-size:10.5px;font-variant-numeric:tabular-nums}
 .kf.sel{box-shadow:0 0 0 2px #7fd1c1,0 0 8px rgba(127,209,193,.7);background:#7fd1c1}
 .play{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent);border-radius:2px;
   pointer-events:none;box-shadow:0 0 8px rgba(255,255,255,.5)}

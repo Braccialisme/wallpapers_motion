@@ -111,6 +111,8 @@ export default function Viewport({ engineRef, onReady }) {
   return (
     <div className="center">
       <div className="viewwrap" ref={wrapRef} onWheel={onWheel} onPointerDown={startPan}
+        onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
+        onAuxClick={(e) => e.preventDefault()}
         style={{ cursor: panRef.current ? 'grabbing' : ui.cursorEdit ? 'crosshair' : 'default' }}>
         <div ref={innerRef} className="viewinner"
           style={{ width: '100%', maxWidth: 1400, aspectRatio: aspect,

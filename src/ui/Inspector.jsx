@@ -21,11 +21,14 @@ function CursorCard() {
   const duration = useStore((s) => s.project.duration)
   const n = cursor?.points?.length || 0
 
+  // Procreate-style feel via spread + softness + falloff (grain comes from the
+  // reveal effect's Scatter param, noted in the caption)
   const brushes = [
-    { name: 'Soft',  shape: 0, spread: 0.22, softness: 0.75 },
-    { name: 'Sharp', shape: 0, spread: 0.12, softness: 0.15 },
-    { name: 'Brush', shape: 1, spread: 0.28, softness: 0.5 },
-    { name: 'Dot',   shape: 2, spread: 0.08, softness: 0.4 },
+    { name: 'Airbrush', shape: 0, spread: 0.26, softness: 0.9, falloff: 1.6 },
+    { name: 'Marker',   shape: 0, spread: 0.18, softness: 0.35, falloff: 0.4 },
+    { name: 'Pencil',   shape: 2, spread: 0.06, softness: 0.12, falloff: 0.1 },
+    { name: 'Pastel',   shape: 1, spread: 0.22, softness: 0.55, falloff: 0.9 },
+    { name: 'Ink',      shape: 0, spread: 0.14, softness: 0.1, falloff: 0.15 },
   ]
   const setPath = (pts) => {
     const cur = useStore.getState().project.cursor
@@ -78,7 +81,7 @@ function CursorCard() {
         <div className="row" style={{ flexWrap: 'wrap', gap: 6 }}>
           {brushes.map((b) => (
             <button key={b.name} className="btn sm"
-              onClick={() => setCursor({ shape: b.shape, spread: b.spread, softness: b.softness })}>{b.name}</button>
+              onClick={() => setCursor({ shape: b.shape, spread: b.spread, softness: b.softness, falloff: b.falloff })}>{b.name}</button>
           ))}
         </div>
       </div>
