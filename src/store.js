@@ -59,6 +59,7 @@ export const useStore = create((set, get) => ({
     previewWidth: 1600,
     viewDepth: false,
     showHelp: false,
+    showGuide: false,
   },
   // depth estimation settings (shared by every layer)
   depth: { model: 'small', refine: true, radius: 8, eps: 0.0025 },

@@ -193,3 +193,22 @@ src/
   store.js      project state + keyframes
   presets.js    starting chains
 ```
+
+---
+
+## Hosted version
+
+Pushed to `main` deploys automatically to
+**https://braccialisme.github.io/wallpapers_motion/**
+
+The hosted build has no ffmpeg behind it, so export switches to encoding in the browser
+with WebCodecs. That works well up to what the GPU encoder accepts; very wide walls
+(8750 px) may be refused, in which case run locally for the full-size render. Everything
+else — depth, effects, keyframes, autosave — is identical.
+
+## Saving
+
+Work is written continuously to IndexedDB in your browser. Reloading, closing the tab or
+stopping the dev server costs nothing; the session is restored on the next visit, images
+included. The project-name menu beside the logo keeps named versions, and
+**Export JSON** produces a single self-contained file to hand to someone else.

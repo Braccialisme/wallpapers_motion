@@ -9,6 +9,9 @@ import LayersPanel from './ui/LayersPanel.jsx'
 import Inspector from './ui/Inspector.jsx'
 import Timeline from './ui/Timeline.jsx'
 import { useShortcuts, HelpModal } from './ui/Shortcuts.jsx'
+import ProjectMenu from './ui/ProjectMenu.jsx'
+import GuideModal from './ui/Guide.jsx'
+import { saveAutosave, loadAutosave, debounce } from './engine/storage.js'
 
 const readDataURL = (file) => new Promise((res, rej) => {
   const r = new FileReader()
@@ -79,6 +82,33 @@ export default function App() {
     })()
     return () => { cancelled = true }
   }, [layerSig, engineEpoch])
+
+  // ---------------------------------------------------------------- autosave
+  // Everything lives in IndexedDB so a reload, a crash or a stopped dev server
+  // never costs work. Restores on first mount, then writes on every change.
+  const restored = useRef(false)
+  useEffect(() => {
+    (async () => {
+      try {
+        const p = await loadAutosave()
+        if (p?.layers?.length) {
+          loadProject(p)
+          setUI({ status: 'restored your last session' })
+          for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id)
+        }
+      } catch (e) {
+        setUI({ status: 'could not restore autosave: ' + e.message })
+      } finally {
+        restored.current = true
+      }
+    })()
+  }, [])
+
+  const autosave = useRef(debounce((p) => { saveAutosave(p).catch(() => {}) }, 700)).current
+  useEffect(() => {
+    if (!restored.current) return      // don't overwrite the save before it is read
+    autosave(project)
+  }, [project])
 
   // ------------------------------------------------------------- add images
   const handleFiles = async (files) => {
@@ -205,6 +235,7 @@ export default function App() {
     <div className="app">
       <div className="topbar">
         <span className="brand">Shimmer<em>Lab</em></span>
+        <ProjectMenu onLoad={(p) => { loadProject(p); for (const l of p.layers) if (l.src && !depthCache.has(l.id)) runDepth(l.id) }} />
 
         <select defaultValue="" style={{ minWidth: 130 }}
           onChange={(e) => { if (e.target.value) applyPreset(e.target.value); e.target.value = '' }}>
@@ -225,7 +256,8 @@ export default function App() {
         <span className="spacer" />
         <span className="status">{busy ? 'loading images…' : ui.status}</span>
 
-        <button className="btn sm" onClick={saveProject}>Save</button>
+        <button className="btn sm" onClick={() => setUI({ showGuide: true })}>Guide</button>
+        <button className="btn sm" onClick={saveProject}>Export JSON</button>
         <label className="btn sm">
           Open<input type="file" accept=".json"
             onChange={(e) => { if (e.target.files[0]) openProject(e.target.files[0]); e.target.value = '' }} />
@@ -247,6 +279,7 @@ export default function App() {
       <Inspector onRedepth={(id) => { depthCache.delete(id); runDepth(id) }} />
       <Timeline />
       <HelpModal />
+      <GuideModal />
     </div>
   )
 }

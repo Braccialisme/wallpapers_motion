@@ -93,6 +93,8 @@ function exportServer() {
 }
 
 export default defineConfig({
+  // GitHub Pages serves the app from /<repo>/, local dev from /
+  base: process.env.GITHUB_PAGES ? '/wallpapers_motion/' : '/',
   plugins: [react(), exportServer()],
   server: {
     port: 5175,
