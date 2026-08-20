@@ -94,6 +94,7 @@ export default class Engine {
     this.textures = new Map()   // key -> THREE.Texture
     this.materials = new Map()  // effectType -> ShaderMaterial
     this.pointGeo = new Map()   // density -> BufferGeometry
+    this.splats = new Map()     // layerId -> { scene, cam, viewer, rt, ready }
     this.rts = []               // ping-pong pool
     this.errors = new Map()     // effectInstanceId -> message
 
@@ -234,6 +235,37 @@ export default class Engine {
     return tex
   }
 
+  // Load a Gaussian-splat scene (.ply/.ksplat/.splat/.spz) for a splat layer. It renders into
+  // an offscreen RT each frame (see render()), which is then used as the layer's texture.
+  async loadSplat(layerId, url, fmt) {
+    const G = await import('@mkkellogg/gaussian-splats-3d')
+    const FMT = { ply: G.SceneFormat.Ply, ksplat: G.SceneFormat.KSplat, splat: G.SceneFormat.Splat, spz: G.SceneFormat.Spz }
+    const scene = new THREE.Scene()
+    const cam = new THREE.PerspectiveCamera(50, 1, 0.1, 500)
+    const viewer = new G.DropInViewer({ gpuAcceleratedSort: false, sharedMemoryForWorkers: false })
+    scene.add(viewer)
+    const rt = new THREE.WebGLRenderTarget(1024, 1024, {
+      minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+      format: THREE.RGBAFormat, type: THREE.UnsignedByteType, depthBuffer: true, stencilBuffer: false,
+    })
+    const entry = { scene, cam, viewer, rt, ready: false }
+    this.removeSplat(layerId)
+    this.splats.set(layerId, entry)
+    try {
+      await viewer.addSplatScene(url, { showLoadingUI: false, progressiveLoad: false, format: FMT[fmt] })
+      entry.ready = true
+    } catch (e) { console.warn('[splat] load failed', e?.message || e) }
+    return entry
+  }
+
+  removeSplat(layerId) {
+    const sp = this.splats.get(layerId)
+    if (!sp) return
+    try { sp.viewer?.dispose?.() } catch {}
+    try { sp.rt?.dispose() } catch {}
+    this.splats.delete(layerId)
+  }
+
   pointGeometry(density) {
     const d = Math.max(8, Math.min(2048, Math.round(density)))
     if (this.pointGeo.has(d)) return this.pointGeo.get(d)
@@ -362,7 +394,23 @@ export default class Engine {
 
     for (const layer of project.layers) {
       if (!layer.visible) continue
-      const tex = this.getTexture(layer.id + ':color')
+      let tex = this.getTexture(layer.id + ':color')
+      // a gaussian-splat layer renders its 3D scene to an offscreen RT each frame; from there
+      // it flows through the normal pipeline (place / effects / clip / composite) like a photo
+      if (layer.kind === 'splat') {
+        const sp = this.splats.get(layer.id)
+        if (!sp || !sp.ready) continue
+        const s = layer.splat || {}
+        const dist = s.dist ?? 4, orbit = s.orbit ?? 0.15, sway = s.sway ?? 0.3, pitch = s.pitch ?? 0.2
+        const yaw = (s.yaw ?? 0) + Math.sin(time * orbit) * sway
+        sp.cam.position.set(Math.sin(yaw) * dist, pitch * dist, Math.cos(yaw) * dist)
+        sp.cam.lookAt(0, 0, 0)
+        sp.cam.updateProjectionMatrix()
+        r.setRenderTarget(sp.rt)
+        r.setClearColor(0x000000, 0); r.clear(true, true, false)
+        try { r.render(sp.scene, sp.cam) } catch (e) { /* splat worker still warming up */ }
+        tex = sp.rt.texture
+      }
       if (!tex) continue
       const depthTex = this.getTexture(layer.id + ':depth')
 

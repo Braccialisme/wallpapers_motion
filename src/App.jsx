@@ -251,6 +251,27 @@ export default function App() {
     setBusy(false)
   }
 
+  // Add a Gaussian-splat layer (.ply/.ksplat/.splat/.spz — e.g. from Splatline). It renders its
+  // 3D scene to a texture each frame (slow auto-orbit for parallax) and then behaves like a
+  // normal layer: transform, clip, reveal, grade all apply.
+  const makeSplatLayer = async (file) => {
+    if (!file) return
+    const ext = (file.name.split('.').pop() || '').toLowerCase()
+    const fmt = ['ksplat', 'splat', 'spz'].includes(ext) ? ext : 'ply'
+    const url = URL.createObjectURL(file)
+    const fh = project.canvas.h
+    const id = addLayer({
+      kind: 'splat', name: file.name.replace(/\.[^.]+$/, '').slice(0, 24),
+      imgW: 1024, imgH: 1024, splat: { dist: 4, orbit: 0.15, sway: 0.3, pitch: 0.2 },
+      depthState: 'none', effects: [],
+    })
+    updateTransform(id, { x: 0, y: 0, scale: fh / 1024, clip: null })
+    setBusy(true); setUI({ status: 'loading splat…' })
+    try { await engineRef.current?.loadSplat(id, url, fmt); setUI({ status: 'splat loaded — it orbits slowly for parallax' }) }
+    catch (e) { setUI({ status: 'splat failed: ' + (e.message || e) }) }
+    setBusy(false)
+  }
+
   const fitAllToFrame = () => {
     const st = useStore.getState()
     const layers = st.project.layers
@@ -455,6 +476,7 @@ export default function App() {
         onFillWall={fillWall}
         onCutSubject={cutSubject}
         onAddText={makeTextLayer}
+        onAddSplat={makeSplatLayer}
         onRedepthAll={() => {
           depthCache.clear()
           for (const l of useStore.getState().project.layers) runDepth(l.id)

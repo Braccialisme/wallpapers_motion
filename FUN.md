@@ -25,6 +25,17 @@ so a project made on `main` still opens fine here.
   warp, grain). Use full (`amount 1`) as a background wash, or **Screen over image** for a
   motion-design colour overlay. Preset: **Motion gradient (wash)**.
 
+## 3D / relighting (R&D)
+
+- **Relight (moving light)** `relight` — treats the depth map as a heightfield and relights the
+  carving with a movable/auto-orbiting light: diffuse + specular + **self-shadows**. Pure GLSL,
+  no lib (technique from codrops-relightning; we already have the depth). Beautiful on reliefs.
+- **Splat layer** — **Splat** button (Layers panel) loads a Gaussian splat (`.ply/.ksplat/.splat/.spz`,
+  e.g. from [Splatline](https://github.com/jaskirat1616/Splatline)) as a **3D layer**. It renders its
+  scene to a texture each frame with a slow auto-orbit (real parallax), then flows through the normal
+  pipeline — transform, clip, reveal, grade all apply. R&D: licensing to sort once validated; renderer
+  is `@mkkellogg/gaussian-splats-3d`. Tune orbit via `layer.splat` {dist, orbit, sway, pitch}.
+
 ## Motion-design pack
 
 | effect | scope | what it does |

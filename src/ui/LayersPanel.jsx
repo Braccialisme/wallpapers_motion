@@ -9,7 +9,7 @@ const DOT = { none: '', pending: 'busy', luminance: 'busy', model: 'ok', importe
 const DEPTH_LABEL = { none: 'no depth', pending: 'estimating…', luminance: 'rough depth',
   model: 'depth ok', imported: 'imported', error: 'depth failed' }
 
-export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWall, onCutSubject, onAddText }) {
+export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWall, onCutSubject, onAddText, onAddSplat }) {
   const { project, ui, depth } = useStore()
   const setUI = useStore((s) => s.setUI)
   const setDepth = useStore((s) => s.setDepth)
@@ -31,6 +31,7 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
   const hasClip = !!ui.fxClipboard
   const fileRef = useRef()
   const fontRef = useRef()
+  const splatRef = useRef()
   const [hot, setHot] = useState(false)
   const [text, setText] = useState('shimmer')
   const [font, setFont] = useState(null)
@@ -42,8 +43,11 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
     <div className="panel">
       <div className="sec">
         <div className="sec-title">Layers<span className="spacer" />
+          <button className="btn sm" title="load a Gaussian splat (.ply/.ksplat/.splat/.spz) as a 3D layer" onClick={() => splatRef.current.click()}>Splat</button>
           <button className="btn sm" onClick={() => fileRef.current.click()}>Add</button>
         </div>
+        <input ref={splatRef} type="file" accept=".ply,.ksplat,.splat,.spz" style={{ display: 'none' }}
+          onChange={(e) => { const f = e.target.files[0]; if (f) onAddSplat?.(f); e.target.value = '' }} />
         <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
           <button className={'btn sm' + (ui.rawPhotos ? ' on' : '')}
             title="show your plain placed photos (turns the reveal/emboss ghost off on every layer). Click again to bring the reveal back."
