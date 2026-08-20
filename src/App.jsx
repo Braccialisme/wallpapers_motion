@@ -192,6 +192,65 @@ export default function App() {
     return () => { window.removeEventListener('dragover', onDragOver); window.removeEventListener('drop', onDrop) }
   }, [])
 
+  // Cut the subject out of the selected image (background -> transparent) so it floats on
+  // the paper. @imgly/background-removal downloads a small model once, then caches it.
+  const cutSubject = async (layerId) => {
+    const st = useStore.getState()
+    const layer = st.project.layers.find((l) => l.id === layerId)
+    if (!layer?.src) return
+    setBusy(true); setUI({ status: 'cutting subject… (first run downloads the model)' })
+    try {
+      const { removeBackground } = await import('@imgly/background-removal')
+      const blob = await removeBackground(layer.src)
+      const src = await readDataURL(blob)
+      const img = await loadImage(src)
+      updateLayer(layerId, { src, depthState: 'luminance' })
+      engineRef.current?.setTexture(layerId + ':color', makeTexture(img))
+      engineRef.current?.setTexture(layerId + ':depth', depthTexture(depthFromLuminance(img)))
+      depthCache.delete(layerId)
+      runDepth(layerId)
+      setUI({ status: 'subject cut out — background is now transparent' })
+    } catch (e) {
+      setUI({ status: 'cut failed: ' + (e.message || e) })
+    }
+    setBusy(false)
+  }
+
+  // Build a layer from text using opentype.js glyph outlines. Pair with the Saber preset and
+  // the letters light up. (Latin/decorative only — opentype.js doesn't shape Arabic joining;
+  // that needs a harfbuzz pass, noted in BACKLOG.)
+  const makeTextLayer = async (text, fontFile) => {
+    if (!text || !fontFile) return
+    setBusy(true); setUI({ status: 'building text…' })
+    try {
+      const mod = await import('opentype.js')
+      const opentype = mod.default || mod
+      const buf = await fontFile.arrayBuffer()
+      const font = opentype.parse(buf)
+      const size = 300
+      const bb = font.getPath(text, 0, 0, size).getBoundingBox()
+      const pad = size * 0.25
+      const w = Math.max(4, Math.ceil(bb.x2 - bb.x1 + pad * 2))
+      const h = Math.max(4, Math.ceil(bb.y2 - bb.y1 + pad * 2))
+      const c = document.createElement('canvas'); c.width = w; c.height = h
+      const ctx = c.getContext('2d')
+      ctx.translate(pad - bb.x1, pad - bb.y1)
+      const p = font.getPath(text, 0, 0, size)
+      p.fill = '#efe9dd'
+      p.draw(ctx)
+      const src = c.toDataURL('image/png')
+      const img = await loadImage(src)
+      const id = addLayer({ name: text.slice(0, 20), src, imgW: w, imgH: h, depthState: 'luminance' })
+      engineRef.current?.setTexture(id + ':color', makeTexture(img))
+      engineRef.current?.setTexture(id + ':depth', depthTexture(depthFromLuminance(img)))
+      updateTransform(id, { x: 0, y: 0, scale: (project.canvas.h * 0.6) / h })
+      setUI({ status: 'text layer added — apply the Saber preset to light it up' })
+    } catch (e) {
+      setUI({ status: 'text failed: ' + (e.message || e) })
+    }
+    setBusy(false)
+  }
+
   const fitAllToFrame = () => {
     const st = useStore.getState()
     const layers = st.project.layers
@@ -394,6 +453,8 @@ export default function App() {
         onFiles={handleFiles}
         onFitAll={fitAllToFrame}
         onFillWall={fillWall}
+        onCutSubject={cutSubject}
+        onAddText={makeTextLayer}
         onRedepthAll={() => {
           depthCache.clear()
           for (const l of useStore.getState().project.layers) runDepth(l.id)

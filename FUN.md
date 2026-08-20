@@ -15,6 +15,14 @@ so a project made on `main` still opens fine here.
 | **Duotone** `duotone` | both | luma mapped through a 3-stop colour ramp (shadow / mid / highlight). |
 | **Audio-reactive** | — | the **Audio** toggle in the viewbar opens the mic; `meyda` extracts level + bass/mid/treble into shader uniforms `uAudio / uAudioLow / uAudioMid / uAudioHigh`. Saber glow pumps on bass, gold-leaf twinkles on treble (set their *Audio-react* amount). Any effect can read those uniforms. |
 
+## Subject cut-out & text
+
+- **Cut subject ✂** (selected-layer row) — `@imgly/background-removal` strips the background to
+  transparent so the subject floats on the paper. First run downloads a small model, then cached.
+- **Text → glyph layer** (Layers panel: type text, pick a `.ttf/.otf`, **Add text**) — `opentype.js`
+  renders the glyph outlines to a layer. Apply the **Saber outline** preset and the letters
+  light up. (Latin/decorative shaping only — Arabic joining needs a harfbuzz pass, see BACKLOG.)
+
 ## Libs added
 
 `meyda` (audio features) · `chroma-js` (palettes / duotone) · `d3-contour` + `simplify-js`

@@ -6,7 +6,7 @@ const DOT = { none: '', pending: 'busy', luminance: 'busy', model: 'ok', importe
 const DEPTH_LABEL = { none: 'no depth', pending: 'estimating…', luminance: 'rough depth',
   model: 'depth ok', imported: 'imported', error: 'depth failed' }
 
-export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWall }) {
+export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWall, onCutSubject, onAddText }) {
   const { project, ui, depth } = useStore()
   const setUI = useStore((s) => s.setUI)
   const setDepth = useStore((s) => s.setDepth)
@@ -21,7 +21,10 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
   const parade = useStore((s) => s.parade)
   const hasClip = !!ui.fxClipboard
   const fileRef = useRef()
+  const fontRef = useRef()
   const [hot, setHot] = useState(false)
+  const [text, setText] = useState('shimmer')
+  const [font, setFont] = useState(null)
 
   const ordered = [...project.layers].reverse()   // topmost first
   const sel = ui.selectedLayer
@@ -40,6 +43,18 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple
           onChange={(e) => { onFiles([...e.target.files]); e.target.value = '' }} />
+
+        {/* text → glyph layer (pair with the Saber preset to make it light up) */}
+        <div className="row" style={{ marginTop: 8, gap: 6 }}>
+          <input type="text" value={text} placeholder="text…" style={{ flex: 1, minWidth: 0 }}
+            onChange={(e) => setText(e.target.value)} />
+          <button className={'btn sm' + (font ? ' on' : '')} title="load a .ttf/.otf font file"
+            onClick={() => fontRef.current.click()}>{font ? 'font ✓' : 'font…'}</button>
+          <button className="btn sm" title="add the text as a glyph layer — then apply the Saber preset to light it up"
+            disabled={!font || !text} onClick={() => onAddText?.(text, font)}>Add text</button>
+        </div>
+        <input ref={fontRef} type="file" accept=".ttf,.otf,.woff" style={{ display: 'none' }}
+          onChange={(e) => { setFont(e.target.files[0] || null); e.target.value = '' }} />
 
         {ordered.length === 0 && (
           <div className={'drop' + (hot ? ' hot' : '')}
@@ -80,6 +95,9 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
             <button className="btn sm grow" title="copy this layer's effect chain + keyframes" onClick={() => copyChain(sel)}>copy FX</button>
             <button className="btn sm grow" title="paste the copied effect chain onto this layer" disabled={!hasClip} onClick={() => pasteChain(sel)}>paste FX</button>
             <button className="btn sm grow" title="remove ALL effects on this layer (stops drift/warp/reveal)" onClick={() => clearLayerEffects(sel)}>clear FX</button>
+          </div>
+          <div className="row">
+            <button className="btn sm grow" title="cut the subject out — background becomes transparent so it floats on the paper (@imgly/background-removal)" onClick={() => onCutSubject?.(sel)}>Cut subject ✂</button>
           </div>
           </>
         )}
