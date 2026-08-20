@@ -79,7 +79,7 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
           <div className={'drop' + (hot ? ' hot' : '')}
             onDragOver={(e) => { e.preventDefault(); setHot(true) }}
             onDragLeave={() => setHot(false)}
-            onDrop={(e) => { e.preventDefault(); setHot(false)
+            onDrop={(e) => { e.preventDefault(); e.stopPropagation(); setHot(false)
               const fs = [...e.dataTransfer.files].filter((f) => f.type.startsWith('image/'))
               if (fs.length) onFiles(fs) }}
           >Drop images here</div>

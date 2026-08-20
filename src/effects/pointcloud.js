@@ -17,6 +17,7 @@ export default {
     soft:     { type: 'float', min: 0.02, max: 1, step: 0.01, default: 0.7, label: 'Point softness' },
     heat:     { type: 'float', min: 0, max: 1, step: 0.01, default: 0.6, label: 'Heat tint' },
     glow:     { type: 'float', min: 0, max: 2, step: 0.01, default: 0.5, label: 'In-flight glow' },
+    cloudA:   { type: 'float', min: 0, max: 1, step: 0.01, default: 0, label: 'Cloud opacity (pre-build)' },
   },
   vert: /* glsl */ `
 void main(){
@@ -44,8 +45,10 @@ void main(){
 
   vColor = mix(heatRamp(1.0 - d), col, a);
   vColor *= 1.0 + p_glow * (1.0 - a);
-  // carry the source alpha so empty areas of the layer never emit points
-  vAlpha = a * src.a;
+  // carry the source alpha so empty areas of the layer never emit points.
+  // cloudA keeps the un-built points VISIBLE (as the abstract scatter cloud) so they
+  // read as a cloud from the start and then resolve into the photo as build rises.
+  vAlpha = mix(a, 1.0, p_cloudA) * src.a;
 
   gl_PointSize = src.a < 0.01 ? 0.0 : p_size * uScale * s * (1.0 + p_sizeNear * (d - 0.5));
   gl_Position  = vec4(p, 0.0, 1.0);

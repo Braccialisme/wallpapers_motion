@@ -66,11 +66,15 @@ export const PRESETS = {
       clearEffects(st, id)
       const pc = st.addEffect(id, 'pointcloud')
       st.setParam(id, pc, 'density', 1100)
-      st.setParam(id, pc, 'order', 0.85)
-      st.setParam(id, pc, 'heat', 0.6)
+      st.setParam(id, pc, 'order', 0.6)     // more random -> reads as a cloud
+      st.setParam(id, pc, 'heat', 0.55)
+      st.setParam(id, pc, 'fly', 0.3)       // bigger initial scatter
+      st.setParam(id, pc, 'cloudA', 0.85)   // the abstract cloud is VISIBLE from the start
+      st.setParam(id, pc, 'glow', 0.7)
+      // watch the cloud gather into the photo across most of the timeline
       st.clearKeys(`L:${id}:E:${pc}:build`)
       st.addKey(`L:${id}:E:${pc}:build`, 0, 0)
-      st.addKey(`L:${id}:E:${pc}:build`, st.project.duration * 0.6, 1.25)
+      st.addKey(`L:${id}:E:${pc}:build`, st.project.duration * 0.85, 1.3)
     },
   },
 
