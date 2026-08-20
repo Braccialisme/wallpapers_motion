@@ -214,7 +214,7 @@ export const useStore = create((set, get) => ({
       let effects = (l.effects || []).filter((f) => f.type !== 'drift')
       effects = effects.map((f) => (HIDE.has(f.type) ? { ...f, enabled: false } : f))
       const t = l.transform
-      return { ...l, transform: p ? { ...t, x: p.x, y: 0, scale: p.sc } : t, effects }
+      return { ...l, transform: p ? { ...t, x: p.x, y: 0, scale: p.sc, clip: null } : { ...t, clip: null }, effects }
     })
     // scroll the whole strip by keyframing every layer's X: at t=0 shift the strip right so its
     // left edge sits on the wall's left edge; at t=end shift left so its right edge sits on the
@@ -264,7 +264,9 @@ export const useStore = create((set, get) => ({
     for (let i = rects.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = rects[i]; rects[i] = rects[j]; rects[j] = t }
     const layers = pool.map((l, i) => {
       const r = rects[i]; const iw = l.imgW || fw, ih = l.imgH || fh
-      return { ...l, transform: { ...l.transform, x: Math.round(r.x + r.w / 2), y: Math.round(r.y + r.h / 2), scale: Math.max(r.w / iw, r.h / ih) } }
+      const cx = Math.round(r.x + r.w / 2), cy = Math.round(r.y + r.h / 2)
+      // cover-scale to fill the cell, then clip to the cell so it's a clean tile (no overflow)
+      return { ...l, transform: { ...l.transform, x: cx, y: cy, scale: Math.max(r.w / iw, r.h / ih), clip: [cx, cy, r.w, r.h] } }
     })
     return { ui: { ...s.ui, status: `mosaic — ${T} cuts from ${N} photos (click to reshuffle)` },
              project: { ...s.project, layers } }

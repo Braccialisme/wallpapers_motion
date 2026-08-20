@@ -50,6 +50,28 @@ void main(){
 }
 `
 
+// Mask a placed layer down to a rectangular cell (for the Mosaic layout). The cell is given
+// in wall-centred pixels, y-down (same coords as transform.x/y); we map each fragment's world
+// uv back into wall space through uFrameRect so preview (world) and export (frame) clip alike.
+const FRAG_CLIP = /* glsl */ `
+precision highp float;
+uniform sampler2D uTex;
+uniform vec2 uCanvas;
+uniform vec4 uFrameRect;
+uniform vec4 uClip;         // cx, cy, cw, ch  (wall px, y-down, centred)
+varying vec2 vUv;
+void main(){
+  vec2 fuv = (vUv - uFrameRect.xy) / uFrameRect.zw;
+  float fw = uCanvas.x * uFrameRect.z, fh = uCanvas.y * uFrameRect.w;
+  float wx = (fuv.x - 0.5) * fw;
+  float wy = (0.5 - fuv.y) * fh;
+  vec4 c = texture2D(uTex, vUv);
+  if (wx < uClip.x - uClip.z * 0.5 || wx > uClip.x + uClip.z * 0.5 ||
+      wy < uClip.y - uClip.w * 0.5 || wy > uClip.y + uClip.w * 0.5) c = vec4(0.0);
+  gl_FragColor = c;
+}
+`
+
 const BLEND = {
   normal: THREE.NormalBlending,
   add: THREE.AdditiveBlending,
@@ -107,6 +129,15 @@ export default class Engine {
     this.depthViewMat = new THREE.ShaderMaterial({
       vertexShader: VERT_QUAD, fragmentShader: FRAG_DEPTHVIEW,
       uniforms: { uTex: { value: null }, uDepth: { value: null } },
+      transparent: true, depthTest: false, depthWrite: false,
+    })
+
+    this.clipMat = new THREE.ShaderMaterial({
+      vertexShader: VERT_QUAD, fragmentShader: FRAG_CLIP,
+      uniforms: {
+        uTex: { value: null }, uCanvas: { value: new THREE.Vector2() },
+        uFrameRect: { value: new THREE.Vector4(0, 0, 1, 1) }, uClip: { value: new THREE.Vector4() },
+      },
       transparent: true, depthTest: false, depthWrite: false,
     })
   }
@@ -348,9 +379,27 @@ export default class Engine {
       pm.uPosPx.value.set(t.x, t.y)
       pm.uCanvasPx.value.set(canvasW, canvasH)
       pm.uRot.value = (t.rot || 0) * Math.PI / 180
-      r.setRenderTarget(rtLayer)
-      r.setClearColor(0x000000, 0); r.clear(true, false, false)
-      this.drawMesh(this.placeMesh)
+      const clip = t.clip
+      if (clip) {
+        // place into a temp, then mask down to the cell rectangle
+        r.setRenderTarget(rtA)
+        r.setClearColor(0x000000, 0); r.clear(true, false, false)
+        this.drawMesh(this.placeMesh)
+        const cu = this.clipMat.uniforms
+        cu.uTex.value = rtA.texture
+        cu.uCanvas.value.set(canvasW, canvasH)
+        cu.uFrameRect.value.set(frameRect[0], frameRect[1], frameRect[2], frameRect[3])
+        cu.uClip.value.set(clip[0], clip[1], clip[2], clip[3])
+        r.setRenderTarget(rtLayer)
+        r.setClearColor(0x000000, 0); r.clear(true, false, false)
+        this.blitMesh.material = this.clipMat
+        this.drawMesh(this.blitMesh)
+        this.blitMesh.material = this.blitMat
+      } else {
+        r.setRenderTarget(rtLayer)
+        r.setClearColor(0x000000, 0); r.clear(true, false, false)
+        this.drawMesh(this.placeMesh)
+      }
 
       // ---- place depth with the identical transform
       r.setRenderTarget(rtDepth)

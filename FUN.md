@@ -17,9 +17,10 @@ so a project made on `main` still opens fine here.
 
 ## Layout & motion
 
-- **Mosaic ▦** (Layers panel) — fits all photos into a recursively subdivided grid (binary
-  space partition, jittered so it's messy-but-not-too-much), cover-cropped, no paper. Click
-  again to reshuffle.
+- **Mosaic ▦** (Layers panel) — cuts the photos into a recursive subdivided grid (binary space
+  partition, ~3× more cells than photos by duplicating + cropping). Each tile is **clipped to
+  its cell** (per-layer clip in the engine), so it's a clean matrix — no overflow, no paper.
+  Click again to reshuffle.
 - **Motion gradient** `gradient` — animated domain-warped mesh gradient (3 colours, flow,
   warp, grain). Use full (`amount 1`) as a background wash, or **Screen over image** for a
   motion-design colour overlay. Preset: **Motion gradient (wash)**.

@@ -163,7 +163,7 @@ export default function App() {
       for (const c of created) {
         const w = c.w * fit
         const l = useStore.getState().project.layers.find((L) => L.id === c.id)
-        updateTransform(c.id, { x: Math.round(x + w / 2), y: 0, scale: (l?.transform.scale || 1) * fit })
+        updateTransform(c.id, { x: Math.round(x + w / 2), y: 0, scale: (l?.transform.scale || 1) * fit, clip: null })
         x += w + gap * fit
       }
     }
@@ -263,7 +263,7 @@ export default function App() {
     let x = -(total * fit) / 2
     for (const it of items) {
       const w = it.w * fit
-      updateTransform(it.id, { x: Math.round(x + w / 2), y: 0, scale: it.s * fit })
+      updateTransform(it.id, { x: Math.round(x + w / 2), y: 0, scale: it.s * fit, clip: null })
       x += w + gap * fit
     }
     setUI({ status: 'fitted all layers into the frame' })
@@ -287,7 +287,7 @@ export default function App() {
     for (const it of items) {
       const slotW = fw * it.a / A
       const scale = Math.max(fh / it.ih, slotW / it.iw)   // cover the slot in both dims
-      updateTransform(it.id, { x: Math.round(xl + slotW / 2), y: 0, scale })
+      updateTransform(it.id, { x: Math.round(xl + slotW / 2), y: 0, scale, clip: null })
       xl += slotW
     }
     if ((st.project.canvas.margin ?? 1) > 0) { /* stay in pasteboard, layout is inside the wall anyway */ }
