@@ -235,29 +235,38 @@ export const useStore = create((set, get) => ({
   // Cells tile the wall exactly -> no paper. Re-run to reshuffle.
   mosaic: () => set((s) => {
     const fw = s.project.canvas.w, fh = s.project.canvas.h
-    const vis = s.project.layers.filter((l) => l.visible !== false)
-    const N = vis.length
+    // originals = real imports (drop any mosaic duplicates from a previous run so re-running
+    // reshuffles instead of multiplying forever)
+    const originals = s.project.layers.filter((l) => !l._mosaicDup)
+    const N = originals.length
     if (!N) return {}
+    const T = Math.min(18, Math.max(7, N * 3))   // MORE cuts than photos -> a busy collage
+    // pool: keep the originals, then round-robin DUPLICATES (fresh ids) to fill the extra cells
+    const pool = []
+    for (let i = 0; i < T; i++) {
+      const src = originals[i % N]
+      pool.push(i < N ? src
+        : { ...src, id: uid('layer'), _mosaicDup: true, effects: (src.effects || []).map((f) => ({ ...f, id: uid('fx') })) })
+    }
+    // messy recursive split: pick among the biggest few cells, jitter the ratio and the axis
     let rects = [{ x: -fw / 2, y: -fh / 2, w: fw, h: fh }]
-    while (rects.length < N) {
-      rects.sort((a, b) => b.w * b.h - a.w * a.h)   // split the biggest cell
-      const r = rects.shift()
-      const ratio = 0.36 + Math.random() * 0.28      // near-even, but not too tidy
-      if (r.w >= r.h) { const w1 = r.w * ratio
+    while (rects.length < T) {
+      rects.sort((a, b) => b.w * b.h - a.w * a.h)
+      const r = rects.splice(Math.floor(Math.random() * Math.min(rects.length, 3)), 1)[0]
+      const ratio = 0.22 + Math.random() * 0.56               // strong jitter -> slivers + chunks
+      const horiz = Math.random() < 0.6 ? r.w >= r.h : r.w > r.h   // mostly longer side, sometimes against
+      if (horiz) { const w1 = r.w * ratio
         rects.push({ x: r.x, y: r.y, w: w1, h: r.h }, { x: r.x + w1, y: r.y, w: r.w - w1, h: r.h }) }
       else { const h1 = r.h * ratio
         rects.push({ x: r.x, y: r.y, w: r.w, h: h1 }, { x: r.x, y: r.y + h1, w: r.w, h: r.h - h1 }) }
     }
-    const posById = {}
-    vis.forEach((l, i) => {
+    // shuffle cells so the same photo's copies don't land next to each other
+    for (let i = rects.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = rects[i]; rects[i] = rects[j]; rects[j] = t }
+    const layers = pool.map((l, i) => {
       const r = rects[i]; const iw = l.imgW || fw, ih = l.imgH || fh
-      posById[l.id] = { x: Math.round(r.x + r.w / 2), y: Math.round(r.y + r.h / 2), scale: Math.max(r.w / iw, r.h / ih) }
+      return { ...l, transform: { ...l.transform, x: Math.round(r.x + r.w / 2), y: Math.round(r.y + r.h / 2), scale: Math.max(r.w / iw, r.h / ih) } }
     })
-    const layers = s.project.layers.map((l) => {
-      const p = posById[l.id]
-      return p ? { ...l, transform: { ...l.transform, x: p.x, y: p.y, scale: p.scale } } : l
-    })
-    return { ui: { ...s.ui, status: 'mosaic — photos fit a recursive grid, no paper (click again to reshuffle)' },
+    return { ui: { ...s.ui, status: `mosaic — ${T} cuts from ${N} photos (click to reshuffle)` },
              project: { ...s.project, layers } }
   }),
 

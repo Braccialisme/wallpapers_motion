@@ -42,14 +42,16 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
     <div className="panel">
       <div className="sec">
         <div className="sec-title">Layers<span className="spacer" />
+          <button className="btn sm" onClick={() => fileRef.current.click()}>Add</button>
+        </div>
+        <div className="row" style={{ flexWrap: 'wrap', gap: 6, marginBottom: 4 }}>
           <button className={'btn sm' + (ui.rawPhotos ? ' on' : '')}
             title="show your plain placed photos (turns the reveal/emboss ghost off on every layer). Click again to bring the reveal back."
             onClick={toggleRawPhotos}>{ui.rawPhotos ? 'Photos ●' : 'Photos ○'}</button>
           <button className="btn sm" title="filmstrip: pack all photos full-size edge to edge and scroll them across the wall over the timeline — a new picture always arriving, never any paper" onClick={parade}>Parade ▶</button>
-          <button className="btn sm" title="fit all photos into a recursive subdivided grid (messy but not too much) — click again to reshuffle" onClick={mosaic}>Mosaic ▦</button>
+          <button className="btn sm" title="cut the photos into a busy recursive mosaic (more cuts than photos — repeats + crops). Click again to reshuffle" onClick={mosaic}>Mosaic ▦</button>
           <button className="btn sm" title="cover-crop every layer edge to edge to fill the wall at once — no gaps, no paper" onClick={onFillWall}>Fill wall</button>
           <button className="btn sm" title="tile every layer side by side inside the frame (may leave paper gaps)" onClick={onFitAll}>Fit all</button>
-          <button className="btn sm" onClick={() => fileRef.current.click()}>Add</button>
         </div>
         <input ref={fileRef} type="file" accept="image/*" multiple
           onChange={(e) => { onFiles([...e.target.files]); e.target.value = '' }} />
