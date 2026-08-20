@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react'
 import { useStore } from '../store.js'
 import { MODELS } from '../engine/depth.js'
+import ColorWheel from './ColorWheel.jsx'
+
+const DEFAULT_DEPTH_COL = [0.93, 0.89, 0.82]   // the beige emboss ghost default
 
 const DOT = { none: '', pending: 'busy', luminance: 'busy', model: 'ok', imported: 'ok', error: 'err' }
 const DEPTH_LABEL = { none: 'no depth', pending: 'estimating…', luminance: 'rough depth',
@@ -19,6 +22,11 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
   const clearLayerEffects = useStore((s) => s.clearLayerEffects)
   const toggleRawPhotos = useStore((s) => s.toggleRawPhotos)
   const parade = useStore((s) => s.parade)
+  const setDepthColour = useStore((s) => s.setDepthColour)
+  const [showDepthCol, setShowDepthCol] = useState(false)
+  // current depth colour: the remembered global, else the first layer's emboss tint, else default
+  const firstEmboss = project.layers.flatMap((l) => l.effects || []).find((f) => f.type === 'emboss')
+  const depthColour = ui.depthColour || firstEmboss?.params?.tint || DEFAULT_DEPTH_COL
   const hasClip = !!ui.fxClipboard
   const fileRef = useRef()
   const fontRef = useRef()
@@ -55,6 +63,15 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
         </div>
         <input ref={fontRef} type="file" accept=".ttf,.otf,.woff" style={{ display: 'none' }}
           onChange={(e) => { setFont(e.target.files[0] || null); e.target.value = '' }} />
+
+        {/* global depth / ghost colour — recolours the beige on every layer at once (wheel + hex) */}
+        <div className="row" style={{ marginTop: 8, alignItems: 'center', gap: 8 }}>
+          <button className="btn sm" title="the beige 'depth' colour on every layer — click for wheel + hex"
+            onClick={() => setShowDepthCol((v) => !v)}>Depth colour {showDepthCol ? '▾' : '▸'}</button>
+          <div className="cw-sw" style={{ width: 20, height: 20, borderRadius: 4,
+            background: `rgb(${depthColour.map((c) => Math.round(c * 255)).join(',')})` }} />
+        </div>
+        {showDepthCol && <ColorWheel value={depthColour} onChange={setDepthColour} />}
 
         {ordered.length === 0 && (
           <div className={'drop' + (hot ? ' hot' : '')}

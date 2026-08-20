@@ -229,6 +229,16 @@ export const useStore = create((set, get) => ({
     return { ui: { ...s.ui, rawPhotos: true, status: 'parade — packed filmstrip scrolling across the wall, no paper' },
              project: { ...s.project, layers, keyframes: kf } }
   }),
+  // One control for the beige "depth" ghost colour across the whole project: set the emboss
+  // 'tint' (the un-revealed / depth-relief colour) on every layer at once. Also remembered in
+  // ui.depthColour so the global picker shows the current value.
+  setDepthColour: (rgb) => set((s) => {
+    const layers = s.project.layers.map((l) => ({
+      ...l,
+      effects: (l.effects || []).map((f) => (f.type === 'emboss' ? { ...f, params: { ...f.params, tint: rgb } } : f)),
+    }))
+    return { ui: { ...s.ui, depthColour: rgb }, project: { ...s.project, layers } }
+  }),
   setParam: (target, fxId, key, value) => set((s) => {
     const up = (arr) => arr.map((f) => (f.id === fxId ? { ...f, params: { ...f.params, [key]: value } } : f))
     if (target === 'global') return { project: { ...s.project, globalEffects: up(s.project.globalEffects) } }
