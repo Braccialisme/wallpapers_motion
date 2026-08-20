@@ -184,6 +184,39 @@ export const PRESETS = {
     },
   },
 
+  cursorReveal: {
+    name: 'Cursor reveal (black emboss → colour)',
+    apply: (st) => {
+      ensureGlobal(st, 'paper')
+      // every layer: black blind-emboss on the paper, staged into depth→colour as the cursor passes
+      for (const layer of st.project.layers) {
+        ;[...layer.effects].forEach((f) => st.removeEffect(layer.id, f.id))
+        const rev = st.addEffect(layer.id, 'scatterReveal')
+        st.setParam(layer.id, rev, 'driver', 5)       // travel (cursor)
+        st.setParam(layer.id, rev, 'scatter', 0.5)
+        st.setParam(layer.id, rev, 'softness', 0.12)
+        st.setParam(layer.id, rev, 'travelDur', 3)
+        const emb = st.addEffect(layer.id, 'emboss')
+        st.setParam(layer.id, emb, 'tint', [0.05, 0.05, 0.06])   // black emboss
+        st.setParam(layer.id, emb, 'stages', true)               // → depth → base → colour
+      }
+      const dur = st.project.duration
+      st.setCursor({ enabled: true, shape: 0, spread: 0.18 })
+      ;((st.project.cursor && st.project.cursor.points) || []).slice().forEach((_, i, a) => st.removeCursorPoint(a.length - 1 - i))
+      st.addCursorPoint(0, 0.02, 0.5)
+      st.addCursorPoint(dur, 0.98, 0.5)
+    },
+  },
+
+  gradientWash: {
+    name: 'Motion gradient (wash)',
+    apply: (st) => {
+      const id = ensureGlobal(st, 'gradient')
+      st.setParam('global', id, 'screen', true)
+      st.setParam('global', id, 'amount', 0.55)
+    },
+  },
+
   saberPulse: {
     name: 'Saber outline + audio pulse',
     apply: (st) => {

@@ -15,6 +15,21 @@ so a project made on `main` still opens fine here.
 | **Duotone** `duotone` | both | luma mapped through a 3-stop colour ramp (shadow / mid / highlight). |
 | **Audio-reactive** | — | the **Audio** toggle in the viewbar opens the mic; `meyda` extracts level + bass/mid/treble into shader uniforms `uAudio / uAudioLow / uAudioMid / uAudioHigh`. Saber glow pumps on bass, gold-leaf twinkles on treble (set their *Audio-react* amount). Any effect can read those uniforms. |
 
+## Layout & motion
+
+- **Mosaic ▦** (Layers panel) — fits all photos into a recursively subdivided grid (binary
+  space partition, jittered so it's messy-but-not-too-much), cover-cropped, no paper. Click
+  again to reshuffle.
+- **Motion gradient** `gradient` — animated domain-warped mesh gradient (3 colours, flow,
+  warp, grain). Use full (`amount 1`) as a background wash, or **Screen over image** for a
+  motion-design colour overlay. Preset: **Motion gradient (wash)**.
+
+## New presets
+
+- **Cursor reveal (black emboss → colour)** — the keeper: black blind-emboss on paper, staged
+  into depth → base colour as the reveal cursor sweeps across (left→right by default).
+- **Motion gradient (wash)**.
+
 ## Subject cut-out & text
 
 - **Cut subject ✂** (selected-layer row) — `@imgly/background-removal` strips the background to

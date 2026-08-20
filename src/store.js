@@ -229,6 +229,38 @@ export const useStore = create((set, get) => ({
     return { ui: { ...s.ui, rawPhotos: true, status: 'parade — packed filmstrip scrolling across the wall, no paper' },
              project: { ...s.project, layers, keyframes: kf } }
   }),
+  // MOSAIC: pack the photos into a recursively-subdivided grid (binary space partition) —
+  // "messy but not too much". Split the largest cell each step along its longer side at a
+  // jittered ratio, one cell per visible layer, then cover-crop each image to fill its cell.
+  // Cells tile the wall exactly -> no paper. Re-run to reshuffle.
+  mosaic: () => set((s) => {
+    const fw = s.project.canvas.w, fh = s.project.canvas.h
+    const vis = s.project.layers.filter((l) => l.visible !== false)
+    const N = vis.length
+    if (!N) return {}
+    let rects = [{ x: -fw / 2, y: -fh / 2, w: fw, h: fh }]
+    while (rects.length < N) {
+      rects.sort((a, b) => b.w * b.h - a.w * a.h)   // split the biggest cell
+      const r = rects.shift()
+      const ratio = 0.36 + Math.random() * 0.28      // near-even, but not too tidy
+      if (r.w >= r.h) { const w1 = r.w * ratio
+        rects.push({ x: r.x, y: r.y, w: w1, h: r.h }, { x: r.x + w1, y: r.y, w: r.w - w1, h: r.h }) }
+      else { const h1 = r.h * ratio
+        rects.push({ x: r.x, y: r.y, w: r.w, h: h1 }, { x: r.x, y: r.y + h1, w: r.w, h: r.h - h1 }) }
+    }
+    const posById = {}
+    vis.forEach((l, i) => {
+      const r = rects[i]; const iw = l.imgW || fw, ih = l.imgH || fh
+      posById[l.id] = { x: Math.round(r.x + r.w / 2), y: Math.round(r.y + r.h / 2), scale: Math.max(r.w / iw, r.h / ih) }
+    })
+    const layers = s.project.layers.map((l) => {
+      const p = posById[l.id]
+      return p ? { ...l, transform: { ...l.transform, x: p.x, y: p.y, scale: p.scale } } : l
+    })
+    return { ui: { ...s.ui, status: 'mosaic — photos fit a recursive grid, no paper (click again to reshuffle)' },
+             project: { ...s.project, layers } }
+  }),
+
   // One control for the beige "depth" ghost colour across the whole project: set the emboss
   // 'tint' (the un-revealed / depth-relief colour) on every layer at once. Also remembered in
   // ui.depthColour so the global picker shows the current value.

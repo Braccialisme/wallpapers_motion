@@ -22,6 +22,7 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
   const clearLayerEffects = useStore((s) => s.clearLayerEffects)
   const toggleRawPhotos = useStore((s) => s.toggleRawPhotos)
   const parade = useStore((s) => s.parade)
+  const mosaic = useStore((s) => s.mosaic)
   const setDepthColour = useStore((s) => s.setDepthColour)
   const [showDepthCol, setShowDepthCol] = useState(false)
   // current depth colour: the remembered global, else the first layer's emboss tint, else default
@@ -45,6 +46,7 @@ export default function LayersPanel({ onFiles, onRedepthAll, onFitAll, onFillWal
             title="show your plain placed photos (turns the reveal/emboss ghost off on every layer). Click again to bring the reveal back."
             onClick={toggleRawPhotos}>{ui.rawPhotos ? 'Photos ●' : 'Photos ○'}</button>
           <button className="btn sm" title="filmstrip: pack all photos full-size edge to edge and scroll them across the wall over the timeline — a new picture always arriving, never any paper" onClick={parade}>Parade ▶</button>
+          <button className="btn sm" title="fit all photos into a recursive subdivided grid (messy but not too much) — click again to reshuffle" onClick={mosaic}>Mosaic ▦</button>
           <button className="btn sm" title="cover-crop every layer edge to edge to fill the wall at once — no gaps, no paper" onClick={onFillWall}>Fill wall</button>
           <button className="btn sm" title="tile every layer side by side inside the frame (may leave paper gaps)" onClick={onFitAll}>Fit all</button>
           <button className="btn sm" onClick={() => fileRef.current.click()}>Add</button>
