@@ -232,4 +232,59 @@ export const PRESETS = {
       ensureGlobal(st, 'bloom')
     },
   },
+
+  filmFinish: {
+    name: 'Film finish (grain + halation)',
+    apply: (st) => { ensureGlobal(st, 'filmgrade') },
+  },
+
+  flow: {
+    name: 'Flow field (points)',
+    apply: (st) => {
+      const id = selected(st)
+      if (!id) return
+      clearEffects(st, id)
+      st.addEffect(id, 'flowfield')
+    },
+  },
+
+  kineticType: {
+    name: 'Kinetic type (fly in)',
+    apply: (st) => {
+      const id = selected(st)
+      if (!id) return
+      const l = st.project.layers.find((x) => x.id === id)
+      const s = l?.transform.scale || 1
+      const P = (p) => `L:${id}:T:${p}`
+      for (const p of ['scale', 'y', 'opacity']) st.clearKeys(P(p))
+      st.addKey(P('scale'), 0, s * 0.7); st.addKey(P('scale'), 1.2, s)
+      st.addKey(P('y'), 0, 120); st.addKey(P('y'), 1.2, 0)
+      st.addKey(P('opacity'), 0, 0); st.addKey(P('opacity'), 0.8, 1)
+    },
+  },
+
+  kenBurns: {
+    name: 'Ken Burns (slow push)',
+    apply: (st) => {
+      const dur = st.project.duration
+      st.project.layers.forEach((l, i) => {
+        const P = (p) => `L:${l.id}:T:${p}`
+        const s = l.transform.scale || 1
+        st.clearKeys(P('scale')); st.addKey(P('scale'), 0, s); st.addKey(P('scale'), dur, s * 1.12)
+        const dx = (i % 2 ? 1 : -1) * 80
+        st.clearKeys(P('x')); st.addKey(P('x'), 0, l.transform.x); st.addKey(P('x'), dur, l.transform.x + dx)
+      })
+    },
+  },
+
+  paradeGradient: {
+    name: 'Parade + gradient wash',
+    apply: (st) => {
+      st.parade()
+      const id = ensureGlobal(st, 'gradient')
+      st.setParam('global', id, 'screen', true)
+      st.setParam('global', id, 'amount', 0.4)
+      ensureGlobal(st, 'bloom')
+    },
+  },
 }

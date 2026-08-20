@@ -24,11 +24,23 @@ so a project made on `main` still opens fine here.
   warp, grain). Use full (`amount 1`) as a background wash, or **Screen over image** for a
   motion-design colour overlay. Preset: **Motion gradient (wash)**.
 
+## Motion-design pack
+
+| effect | scope | what it does |
+|---|---|---|
+| **Film grade** `filmgrade` | global | chromatic-edge + halation bleed + grain + vignette + contrast/sat — instant premium finish. |
+| **Halftone / Riso** `halftone` | both | posterize + rotated dot screen on a paper colour — graphic, printy. |
+| **Liquid warp** `liquid` | both | flowing domain-warp displacement of the image — wobbling liquid. |
+| **Flow field** `flowfield` | layer (points) | GPU points streaming along an animated noise field, coloured by the photo. |
+
 ## New presets
 
 - **Cursor reveal (black emboss → colour)** — the keeper: black blind-emboss on paper, staged
   into depth → base colour as the reveal cursor sweeps across (left→right by default).
-- **Motion gradient (wash)**.
+- **Motion gradient (wash)** · **Film finish (grain + halation)** · **Flow field**
+- **Kinetic type (fly in)** — the selected layer scales + rises + fades in over the first ~1.2s.
+- **Ken Burns (slow push)** — every layer slowly pushes in and drifts across the timeline.
+- **Parade + gradient wash** — the filmstrip scroll with a screen gradient + bloom over it.
 
 ## Subject cut-out & text
 
