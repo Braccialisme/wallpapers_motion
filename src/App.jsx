@@ -173,6 +173,25 @@ export default function App() {
     for (const c of created) runDepth(c.id)
   }
 
+  // Drop images anywhere in the app, at any time — not just onto the empty-state panel.
+  // (The panel's drop zone only exists when there are zero layers, so once you'd added
+  // images there was nowhere left to drop new ones.)
+  const handleFilesRef = useRef()
+  handleFilesRef.current = handleFiles
+  useEffect(() => {
+    const isFileDrag = (e) => Array.from(e.dataTransfer?.types || []).includes('Files')
+    const onDragOver = (e) => { if (isFileDrag(e)) e.preventDefault() }
+    const onDrop = (e) => {
+      if (!isFileDrag(e)) return
+      e.preventDefault()
+      const fs = Array.from(e.dataTransfer.files || []).filter((f) => f.type.startsWith('image/'))
+      if (fs.length) handleFilesRef.current?.(fs)
+    }
+    window.addEventListener('dragover', onDragOver)
+    window.addEventListener('drop', onDrop)
+    return () => { window.removeEventListener('dragover', onDragOver); window.removeEventListener('drop', onDrop) }
+  }, [])
+
   const fitAllToFrame = () => {
     const st = useStore.getState()
     const layers = st.project.layers
