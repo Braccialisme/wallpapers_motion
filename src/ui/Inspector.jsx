@@ -114,6 +114,17 @@ export default function Inspector({ onRedepth }) {
   const layer = project.layers.find((l) => l.id === ui.selectedLayer)
   const [tab, setTab] = useState('layer')
 
+  // transform ranges scale with the canvas — on the 22050 master, X must reach the far walls
+  const cw = project.canvas.w, ch = project.canvas.h
+  const xr = Math.max(6000, Math.round(cw * 0.85))
+  const yr = Math.max(3000, Math.round(ch * 2))
+  const tdefs = {
+    ...T_DEFS,
+    x: { ...T_DEFS.x, min: -xr, max: xr },
+    y: { ...T_DEFS.y, min: -yr, max: yr },
+    scale: { ...T_DEFS.scale, max: Math.max(6, Math.round(cw / 800)) },
+  }
+
   return (
     <div className="panel right">
       <div className="seg" style={{ marginBottom: 14 }}>
@@ -165,7 +176,7 @@ export default function Inspector({ onRedepth }) {
           <div className="sec">
             <div className="sec-title">Transform</div>
             <div className="card">
-              {Object.entries(T_DEFS).map(([k, def]) => (
+              {Object.entries(tdefs).map(([k, def]) => (
                 <ParamRow key={k} def={def} pkey={k}
                   value={layer.transform[k]}
                   onChange={(v) => updateTransform(layer.id, { [k]: v })}
