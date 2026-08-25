@@ -45,6 +45,7 @@ export default function Viewport({ engineRef, onReady }) {
   const updateCursorPoint = useStore((s) => s.updateCursorPoint)
   const removeCursorPoint = useStore((s) => s.removeCursorPoint)
   const setCanvas = useStore((s) => s.setCanvas)
+  const updateTransform = useStore((s) => s.updateTransform)
 
   // world / frame geometry ---------------------------------------------------
   const m = project.canvas.margin ?? 1.0
@@ -112,12 +113,47 @@ export default function Viewport({ engineRef, onReady }) {
     return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
   }, [fr, frs])
 
+  // layer move gizmo ---------------------------------------------------------
+  const moveRef = useRef(null)
+  const selLayer = project.layers.find((l) => l.id === ui.selectedLayer)
+  const worldW = project.canvas.w / frs      // world size in px (= frame * (1+2*margin))
+  const worldH = project.canvas.h / frs
+  const onLayerHandleDown = (e) => {
+    if (ui.cursorEdit || e.button !== 0 || !selLayer) return
+    e.stopPropagation(); e.preventDefault()
+    const rectW = canvasRef.current.getBoundingClientRect().width
+    moveRef.current = { sx: e.clientX, sy: e.clientY, ox: selLayer.transform.x, oy: selLayer.transform.y, k: worldW / rectW }
+  }
+  useEffect(() => {
+    const move = (e) => {
+      const mv = moveRef.current; if (!mv) return
+      const fine = e.shiftKey ? 0.2 : 1     // hold Shift for precise nudging
+      updateTransform(ui.selectedLayer, {
+        x: Math.round(mv.ox + (e.clientX - mv.sx) * mv.k * fine),
+        y: Math.round(mv.oy + (e.clientY - mv.sy) * mv.k * fine),
+      })
+    }
+    const up = () => { moveRef.current = null }
+    window.addEventListener('pointermove', move); window.addEventListener('pointerup', up)
+    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+  }, [ui.selectedLayer, worldW])
+
   const cur = project.cursor
   const pos = cursorAt(cur, ui.time)
   const pts = cur?.points || []
   const AX = 100 * aspect
   const wx = (fx) => (fr + fx * frs) * AX     // frame-norm x -> world SVG x
   const wy = (fy) => (fr + fy * frs) * 100
+
+  // selected-layer gizmo geometry (world-normalised -> SVG units)
+  const giz = selLayer && !ui.cursorEdit ? (() => {
+    const t = selLayer.transform
+    const iw = selLayer.imgW || project.canvas.w, ih = selLayer.imgH || project.canvas.h
+    return {
+      cx: (0.5 + t.x / worldW) * AX, cy: (0.5 + t.y / worldH) * 100,
+      hw: ((iw * t.scale) / 2 / worldW) * AX, hh: ((ih * t.scale) / 2 / worldH) * 100,
+    }
+  })() : null
 
   return (
     <div className="center">
@@ -161,6 +197,20 @@ export default function Viewport({ engineRef, onReady }) {
                 fill="rgba(0,124,255,.95)" fontSize="3.2" textAnchor="middle">{n}</text>
             ))}
           </svg>
+
+          {/* selected-layer move gizmo: bounding box + a grab handle at its centre (Shift = fine) */}
+          {giz && (
+            <svg viewBox={`0 0 ${AX} 100`} preserveAspectRatio="none"
+              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+              <rect x={giz.cx - giz.hw} y={giz.cy - giz.hh} width={giz.hw * 2} height={giz.hh * 2}
+                fill="none" stroke="rgba(127,209,193,.8)" strokeWidth="0.8" strokeDasharray="4 3"
+                vectorEffect="non-scaling-stroke" />
+              <circle cx={giz.cx} cy={giz.cy} r="1.8" fill="rgba(127,209,193,.35)" stroke="#7fd1c1" strokeWidth="0.8"
+                vectorEffect="non-scaling-stroke"
+                style={{ cursor: moveRef.current ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
+                onPointerDown={onLayerHandleDown} />
+            </svg>
+          )}
 
           {cur?.enabled && pts.length > 0 && (() => {
             const dur = project.duration || 1
