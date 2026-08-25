@@ -62,7 +62,7 @@ export default function Viewport({ engineRef, onReady }) {
 
   const clampView = (v) => {
     let z = isFinite(v.z) ? v.z : fitZ
-    z = Math.min(12, Math.max(0.5, z))
+    z = Math.min(80, Math.max(0.3, z))
     const r = wrapRef.current?.getBoundingClientRect()
     if (!r) return { z, x: isFinite(v.x) ? v.x : 0, y: isFinite(v.y) ? v.y : 0 }
     const mx = r.width * (0.5 + z * 0.5), my = r.height * (0.5 + z * 0.5)
@@ -137,28 +137,28 @@ export default function Viewport({ engineRef, onReady }) {
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
             {/* the export frame outline only — the surround is the dark pasteboard itself */}
             <rect x={fr * AX} y={fr * 100} width={frs * AX} height={frs * 100}
-              fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="1.5"
+              fill="none" stroke="rgba(255,255,255,.45)" strokeWidth="0.6"
               vectorEffect="non-scaling-stroke" />
             {/* 3-wall master. Thematic zones (from the scenography SVG) = faint guides to place
                 content on the right theme. Physical walls (the export cut) = solid blue lines. */}
             {project.canvas.w > 16384 && WALL_ZONES.slice(1, -1).map((z, i) => {
               const fx = (fr + z * frs) * AX
               return <line key={'z' + i} x1={fx} y1={fr * 100} x2={fx} y2={(fr + frs) * 100}
-                stroke="rgba(127,209,193,.5)" strokeWidth="1" strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
+                stroke="rgba(127,209,193,.45)" strokeWidth="0.4" strokeDasharray="2 6" vectorEffect="non-scaling-stroke" />
             })}
             {project.canvas.w > 16384 && WALL_ZONES.slice(0, -1).map((z, i) => {
               const cx = (z + WALL_ZONES[i + 1]) / 2
               return <text key={'zl' + i} x={(fr + cx * frs) * AX} y={(fr + frs) * 100 - 3}
-                fill="rgba(127,209,193,.7)" fontSize="3" textAnchor="middle">{i + 1}</text>
+                fill="rgba(127,209,193,.6)" fontSize="2.4" textAnchor="middle">{i + 1}</text>
             })}
-            {project.canvas.w > 16384 && [8750, 17500].map((bx) => {
+            {project.canvas.w > 16384 && [8750, 13300].map((bx) => {
               const fx = (fr + (bx / project.canvas.w) * frs) * AX
               return <line key={bx} x1={fx} y1={fr * 100} x2={fx} y2={(fr + frs) * 100}
-                stroke="rgba(0,124,255,.85)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+                stroke="rgba(0,124,255,.9)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
             })}
-            {project.canvas.w > 16384 && [['1', 4375], ['2', 13125], ['3', 19775]].map(([n, cx]) => (
-              <text key={'w' + n} x={(fr + (cx / project.canvas.w) * frs) * AX} y={fr * 100 + 6}
-                fill="rgba(0,124,255,.95)" fontSize="4" textAnchor="middle">wall {n}</text>
+            {project.canvas.w > 16384 && [['Left', 4375], ['Front', 11025], ['Right', 17675]].map(([n, cx]) => (
+              <text key={'w' + n} x={(fr + (cx / project.canvas.w) * frs) * AX} y={fr * 100 + 5}
+                fill="rgba(0,124,255,.95)" fontSize="3.2" textAnchor="middle">{n}</text>
             ))}
           </svg>
 
@@ -223,7 +223,7 @@ export default function Viewport({ engineRef, onReady }) {
         <span className="mono">{project.canvas.w}×{project.canvas.h}</span>
         <span style={{ flex: 1 }} />
         <span>preview {Math.min(ui.previewWidth, project.canvas.w)}px</span>
-        <input type="range" min={600} max={3000} step={50} value={ui.previewWidth} style={{ width: 120 }}
+        <input type="range" min={600} max={8000} step={50} value={ui.previewWidth} style={{ width: 120 }}
           onChange={(e) => setUI({ previewWidth: Number(e.target.value) })} />
       </div>
     </div>

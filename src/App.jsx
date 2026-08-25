@@ -404,7 +404,7 @@ export default function App() {
       const is3 = st.project.canvas.w > 16384
       const wall = is3 ? WALLS_3[wallSel] : null
       const proj = wall ? deriveWall(st.project, wall) : st.project
-      const suffix = wall ? `_wall${wallSel + 1}` : ''
+      const suffix = wall ? `_${wall.key}` : ''
       const renderFrame = (t, w, h) =>
         engine.renderToBlob(resolveProject(proj, t), t, w, h)
       const file = await exportVideo(
@@ -429,7 +429,7 @@ export default function App() {
     const proj = wall ? deriveWall(st.project, wall) : st.project
     const renderFrame = (t, w, h) =>
       engineRef.current.renderToBlob(resolveProject(proj, t), t, w, h)
-    await exportStill(renderFrame, proj.canvas, st.ui.time, (st.project.name || 'wall') + (wall ? `_wall${wallSel + 1}` : ''))
+    await exportStill(renderFrame, proj.canvas, st.ui.time, (st.project.name || 'wall') + (wall ? `_${wall.key}` : ''))
   }
 
   // Ctrl/Cmd+S saves to the current file (or asks where on the first save)

@@ -440,10 +440,12 @@ if (import.meta.env.DEV) window.__store = useStore   // handy in the console
 /** Bake keyframes at time t -> a plain project the engine can render. */
 // The combined 3-wall master (22050×1000) split into its physical walls. Widths match the
 // single-wall canvas presets (8750, 8750, 4550).
+// Physical arrangement: the small wall (4550) is the FRONT wall in the middle; the two large
+// walls (8750) are Left and Right. Order across the 22050 run = Left | Front | Right.
 export const WALLS_3 = [
-  { name: 'Wall 1 · 8750', x0: 0, w: 8750 },
-  { name: 'Wall 2 · 8750', x0: 8750, w: 8750 },
-  { name: 'Wall 3 · 4550', x0: 17500, w: 4550 },
+  { name: 'Left · 8750', key: 'left', x0: 0, w: 8750 },
+  { name: 'Front · 4550', key: 'front', x0: 8750, w: 4550 },
+  { name: 'Right · 8750', key: 'right', x0: 13300, w: 8750 },
 ]
 
 // Thematic-zone boundaries (normalised 0..1 across the full 22050 run), decoded from the
