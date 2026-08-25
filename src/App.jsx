@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react'
 import * as THREE from 'three'
-import { useStore, resolveProject } from './store.js'
+import { useStore, resolveProject, WALLS_3, deriveWall } from './store.js'
 import { estimateDepth, depthTexture, depthFromLuminance } from './engine/depth.js'
 import { exportVideo, exportStill } from './engine/exporter.js'
 import { PRESETS } from './presets.js'
@@ -52,6 +52,7 @@ export default function App() {
   const loadProject = useStore((s) => s.loadProject)
   const newProject = useStore((s) => s.newProject)
   const [busy, setBusy] = useState(false)
+  const [wallSel, setWallSel] = useState(0)   // which physical wall to cut for export (3-wall master)
   const [engineEpoch, setEngineEpoch] = useState(0)   // bumps whenever a new engine is created
   useShortcuts()
   const fileHandle = useRef(null)
@@ -398,14 +399,20 @@ export default function App() {
     const st = useStore.getState()
     setUI({ exporting: { frame: 0, total: 1, phase: 'starting' }, playing: false })
     try {
+      // 22050 combined master exceeds the max GPU texture, so it's exported one physical wall
+      // at a time — each wall cut out and centred at its native size.
+      const is3 = st.project.canvas.w > 16384
+      const wall = is3 ? WALLS_3[wallSel] : null
+      const proj = wall ? deriveWall(st.project, wall) : st.project
+      const suffix = wall ? `_wall${wallSel + 1}` : ''
       const renderFrame = (t, w, h) =>
-        engine.renderToBlob(resolveProject(st.project, t), t, w, h)
+        engine.renderToBlob(resolveProject(proj, t), t, w, h)
       const file = await exportVideo(
         renderFrame,
         {
-          w: st.project.canvas.w, h: st.project.canvas.h,
-          fps: st.project.fps, duration: st.project.duration,
-          name: st.project.name || 'wall',
+          w: proj.canvas.w, h: proj.canvas.h,
+          fps: proj.fps, duration: proj.duration,
+          name: (st.project.name || 'wall') + suffix,
         },
         { onProgress: (p) => setUI({ exporting: p }) },
       )
@@ -417,9 +424,12 @@ export default function App() {
 
   const doStill = async () => {
     const st = useStore.getState()
+    const is3 = st.project.canvas.w > 16384
+    const wall = is3 ? WALLS_3[wallSel] : null
+    const proj = wall ? deriveWall(st.project, wall) : st.project
     const renderFrame = (t, w, h) =>
-      engineRef.current.renderToBlob(resolveProject(st.project, t), t, w, h)
-    await exportStill(renderFrame, st.project.canvas, st.ui.time, st.project.name || 'wall')
+      engineRef.current.renderToBlob(resolveProject(proj, t), t, w, h)
+    await exportStill(renderFrame, proj.canvas, st.ui.time, (st.project.name || 'wall') + (wall ? `_wall${wallSel + 1}` : ''))
   }
 
   // Ctrl/Cmd+S saves to the current file (or asks where on the first save)
@@ -464,6 +474,12 @@ export default function App() {
         <button className="btn sm" onClick={() => setUI({ showGuide: true })}>Guide</button>
         <button className="btn sm" onClick={doOpenFile}>Open</button>
         <button className="btn sm" title="save as a new file" onClick={() => doSave(true)}>Save As</button>
+        {project.canvas.w > 16384 && (
+          <select title="which physical wall to cut out for export" value={wallSel}
+            onChange={(e) => setWallSel(Number(e.target.value))}>
+            {WALLS_3.map((w, i) => <option key={i} value={i}>{`cut: ${w.name}`}</option>)}
+          </select>
+        )}
         <button className="btn sm" onClick={doStill} disabled={!!exp}>PNG</button>
         <button className="btn pri" onClick={doExport} disabled={!!exp}>
           {exp ? `${exp.phase} ${exp.frame}/${exp.total}` : 'Export MP4'}

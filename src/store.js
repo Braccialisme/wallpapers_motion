@@ -438,6 +438,36 @@ useStore.subscribe((s, prev) => {
 if (import.meta.env.DEV) window.__store = useStore   // handy in the console
 
 /** Bake keyframes at time t -> a plain project the engine can render. */
+// The combined 3-wall master (22050×1000) split into its physical walls. Widths match the
+// single-wall canvas presets (8750, 8750, 4550).
+export const WALLS_3 = [
+  { name: 'Wall 1 · 8750', x0: 0, w: 8750 },
+  { name: 'Wall 2 · 8750', x0: 8750, w: 8750 },
+  { name: 'Wall 3 · 4550', x0: 17500, w: 4550 },
+]
+
+// Cut one wall out of the combined canvas for export: return a project whose canvas IS that
+// wall (its native size), with everything shifted so the wall is centred. Pure data transform —
+// the normal render path then renders it exactly, so preview and each cut stay identical.
+export function deriveWall(project, wall) {
+  const fw = project.canvas.w
+  const dx = (wall.x0 + wall.w / 2) - fw / 2   // px to subtract so the wall centres on 0
+  const sx0 = wall.x0 / fw, swn = wall.w / fw  // wall's slice in full-frame normalised coords
+  const layers = project.layers.map((l) => {
+    const t = l.transform
+    const clip = t.clip ? [t.clip[0] - dx, t.clip[1], t.clip[2], t.clip[3]] : (t.clip ?? null)
+    return { ...l, transform: { ...t, x: t.x - dx, clip } }
+  })
+  const keyframes = {}
+  for (const [path, arr] of Object.entries(project.keyframes || {})) {
+    keyframes[path] = /:T:x$/.test(path) ? arr.map((k) => ({ ...k, v: k.v - dx })) : arr
+  }
+  const cursor = project.cursor
+    ? { ...project.cursor, points: (project.cursor.points || []).map((p) => ({ ...p, x: (p.x - sx0) / swn })) }
+    : project.cursor
+  return { ...project, canvas: { ...project.canvas, w: wall.w }, layers, keyframes, cursor }
+}
+
 export function resolveProject(project, t) {
   const kf = project.keyframes || {}
   const layers = project.layers.map((l) => {
