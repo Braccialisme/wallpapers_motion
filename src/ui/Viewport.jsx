@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Engine from '../engine/Engine.js'
-import { useStore, resolveProject, cursorAt } from '../store.js'
+import { useStore, resolveProject, cursorAt, WALL_ZONES } from '../store.js'
 import { audioState, startAudio, stopAudio } from '../engine/audio.js'
 
 export default function Viewport({ engineRef, onReady }) {
@@ -139,15 +139,26 @@ export default function Viewport({ engineRef, onReady }) {
             <rect x={fr * AX} y={fr * 100} width={frs * AX} height={frs * 100}
               fill="none" stroke="rgba(255,255,255,.5)" strokeWidth="1.5"
               vectorEffect="non-scaling-stroke" />
-            {/* 3-wall master: show where each physical wall sits, so you can compose across them */}
+            {/* 3-wall master. Thematic zones (from the scenography SVG) = faint guides to place
+                content on the right theme. Physical walls (the export cut) = solid blue lines. */}
+            {project.canvas.w > 16384 && WALL_ZONES.slice(1, -1).map((z, i) => {
+              const fx = (fr + z * frs) * AX
+              return <line key={'z' + i} x1={fx} y1={fr * 100} x2={fx} y2={(fr + frs) * 100}
+                stroke="rgba(127,209,193,.5)" strokeWidth="1" strokeDasharray="2 4" vectorEffect="non-scaling-stroke" />
+            })}
+            {project.canvas.w > 16384 && WALL_ZONES.slice(0, -1).map((z, i) => {
+              const cx = (z + WALL_ZONES[i + 1]) / 2
+              return <text key={'zl' + i} x={(fr + cx * frs) * AX} y={(fr + frs) * 100 - 3}
+                fill="rgba(127,209,193,.7)" fontSize="3" textAnchor="middle">{i + 1}</text>
+            })}
             {project.canvas.w > 16384 && [8750, 17500].map((bx) => {
               const fx = (fr + (bx / project.canvas.w) * frs) * AX
               return <line key={bx} x1={fx} y1={fr * 100} x2={fx} y2={(fr + frs) * 100}
-                stroke="rgba(127,209,193,.7)" strokeWidth="1" strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+                stroke="rgba(0,124,255,.85)" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
             })}
             {project.canvas.w > 16384 && [['1', 4375], ['2', 13125], ['3', 19775]].map(([n, cx]) => (
-              <text key={n} x={(fr + (cx / project.canvas.w) * frs) * AX} y={fr * 100 + 6}
-                fill="rgba(127,209,193,.9)" fontSize="4" textAnchor="middle">wall {n}</text>
+              <text key={'w' + n} x={(fr + (cx / project.canvas.w) * frs) * AX} y={fr * 100 + 6}
+                fill="rgba(0,124,255,.95)" fontSize="4" textAnchor="middle">wall {n}</text>
             ))}
           </svg>
 

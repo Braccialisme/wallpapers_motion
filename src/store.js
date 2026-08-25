@@ -446,6 +446,12 @@ export const WALLS_3 = [
   { name: 'Wall 3 · 4550', x0: 17500, w: 4550 },
 ]
 
+// Thematic-zone boundaries (normalised 0..1 across the full 22050 run), decoded from the
+// scenography's shimmering_wall_layout.svg (8 zones for the thematic mapping). Shown as
+// background guides so the composition lands on the right theme; NOT the export cut (that's
+// the 3 physical walls, WALLS_3).
+export const WALL_ZONES = [0, 0.0912, 0.1611, 0.2897, 0.4019, 0.6137, 0.8431, 0.9499, 1.0]
+
 // Cut one wall out of the combined canvas for export: return a project whose canvas IS that
 // wall (its native size), with everything shifted so the wall is centred. Pure data transform —
 // the normal render path then renders it exactly, so preview and each cut stay identical.
