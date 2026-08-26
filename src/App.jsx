@@ -405,7 +405,7 @@ export default function App() {
       const proj = wall ? deriveWall(st.project, wall) : st.project
       const suffix = wall ? `_${wall.key}` : ''
       const renderFrame = (t, w, h) =>
-        engine.renderToBlob(resolveProject(proj, t), t, w, h)
+        engine.renderToBlob(resolveProject(proj, t), t, w, h, { padX: wall ? 4000 : 0 })
       const file = await exportVideo(
         renderFrame,
         {
@@ -427,7 +427,7 @@ export default function App() {
     const wall = is3 ? WALLS_3[st.ui.wallSel] : null
     const proj = wall ? deriveWall(st.project, wall) : st.project
     const renderFrame = (t, w, h) =>
-      engineRef.current.renderToBlob(resolveProject(proj, t), t, w, h)
+      engineRef.current.renderToBlob(resolveProject(proj, t), t, w, h, { padX: wall ? 4000 : 0 })
     await exportStill(renderFrame, proj.canvas, st.ui.time, (st.project.name || 'wall') + (wall ? `_${wall.key}` : ''))
   }
 

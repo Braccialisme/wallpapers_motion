@@ -371,11 +371,21 @@ export default class Engine {
     const fw = project.canvas.w, fh = project.canvas.h            // the export FRAME
     // preview renders a WORLD larger than the frame (a plan de travail) so layers can be
     // parked in the surround; export renders the frame only (frameOnly:true, margin 0).
-    const m = opts.frameOnly ? 0 : (project.canvas.margin ?? 1.0)
-    const canvasW = Math.round(fw * (1 + 2 * m)), canvasH = Math.round(fh * (1 + 2 * m))
-    // the frame's rect inside the world, normalised — reveal/effects map through this
-    const fr = m > 0 ? m / (1 + 2 * m) : 0, frs = 1 / (1 + 2 * m)
-    const frameRect = [fr, fr, frs, frs]
+    // padX (wall px): render a wall PLUS horizontal padding so a photo whose centre sits in
+    // the neighbour wall isn't clipped at the wall edge before its effects run (that clipping
+    // is what made straddling images vanish to grey on cut export). The frame is the wall
+    // region inside the padded canvas; renderToBlob then crops the output to the wall.
+    const padX = opts.padX || 0
+    let canvasW, canvasH, frameRect
+    if (padX > 0) {
+      canvasW = Math.round(fw + 2 * padX); canvasH = fh
+      frameRect = [padX / canvasW, 0, fw / canvasW, 1]
+    } else {
+      const m = opts.frameOnly ? 0 : (project.canvas.margin ?? 1.0)
+      canvasW = Math.round(fw * (1 + 2 * m)); canvasH = Math.round(fh * (1 + 2 * m))
+      const fr = m > 0 ? m / (1 + 2 * m) : 0, frs = 1 / (1 + 2 * m)
+      frameRect = [fr, fr, frs, frs]
+    }
     const w = Math.max(2, Math.round(opts.width || canvasW))
     const h = Math.max(2, Math.round(opts.height || canvasH))
     const scale = w / canvasW
@@ -571,23 +581,32 @@ export default class Engine {
     this.scene.clear()
   }
 
-  /** Render one frame at full resolution and return a PNG blob. */
-  async renderToBlob(project, time, width, height) {
-    const rt = this.makeRT(width, height)
-    this.render(project, time, { width, height, target: rt, frameOnly: true })   // export = the frame only
-    const buf = new Uint8Array(width * height * 4)
-    this.renderer.readRenderTargetPixels(rt, 0, 0, width, height, buf)
+  /**
+   * Render one frame at full resolution and return a PNG blob.
+   * opts.padX (wall px): render the wall inside a padded canvas so photos straddling the wall
+   * edge aren't clipped before effects, then crop the output back to the wall (fixes the grey
+   * strips on cut export). Capped so the padded canvas stays under the GPU texture limit.
+   */
+  async renderToBlob(project, time, width, height, opts = {}) {
+    let padX = opts.padX || 0
+    if (padX > 0) padX = Math.min(padX, Math.floor((16000 - width) / 2))   // stay under the texture cap
+    if (padX < 0) padX = 0
+    const rw = width + 2 * padX          // render width (padded), height unchanged
+    const rt = this.makeRT(rw, height)
+    this.render(project, time, { width: rw, height, target: rt, frameOnly: padX === 0, padX })
+    const buf = new Uint8Array(rw * height * 4)
+    this.renderer.readRenderTargetPixels(rt, 0, 0, rw, height, buf)
     rt.dispose()
 
-    // readPixels is bottom-up; flip into an ImageData
+    // readPixels is bottom-up; flip AND crop the centre (the wall) into an ImageData
     const cv = document.createElement('canvas')
     cv.width = width; cv.height = height
     const ctx = cv.getContext('2d')
     const img = ctx.createImageData(width, height)
-    const rowBytes = width * 4
+    const srcRow = rw * 4, dstRow = width * 4, xoff = padX * 4
     for (let y = 0; y < height; y++) {
-      const s = (height - 1 - y) * rowBytes
-      img.data.set(buf.subarray(s, s + rowBytes), y * rowBytes)
+      const s = (height - 1 - y) * srcRow + xoff
+      img.data.set(buf.subarray(s, s + dstRow), y * dstRow)
     }
     ctx.putImageData(img, 0, 0)
     return await new Promise((res) => cv.toBlob(res, 'image/png'))
