@@ -72,7 +72,28 @@ export default function Viewport({ engineRef, onReady }) {
     return { z, x, y }
   }
   const resetView = () => setView({ z: fitZ, x: 0, y: 0 })
-  const onWheel = (e) => { e.preventDefault(); setView((v) => clampView({ ...v, z: v.z * Math.exp(-e.deltaY * 0.0015) })) }
+  // zoom anchored at the cursor (so the point under the mouse stays put — no sideways drift)
+  const wheelRef = useRef()
+  const onWheel = (e) => {
+    e.preventDefault()
+    const r = wrapRef.current?.getBoundingClientRect()
+    const mx = r ? e.clientX - r.left - r.width / 2 : 0
+    const my = r ? e.clientY - r.top - r.height / 2 : 0
+    setView((v) => {
+      const nz = Math.min(80, Math.max(0.3, v.z * Math.exp(-e.deltaY * 0.0015)))
+      const f = nz / v.z
+      return clampView({ z: nz, x: mx - (mx - v.x) * f, y: my - (my - v.y) * f })
+    })
+  }
+  // React's onWheel is passive, so its preventDefault is ignored and the browser still scrolls
+  // the page (the canvas "drifts" like a pan). Attach a NON-passive native wheel listener instead.
+  wheelRef.current = onWheel
+  useEffect(() => {
+    const el = wrapRef.current; if (!el) return
+    const h = (e) => wheelRef.current(e)
+    el.addEventListener('wheel', h, { passive: false })
+    return () => el.removeEventListener('wheel', h)
+  }, [])
   const startPan = (e) => {
     if (ui.cursorEdit && e.button === 0) return
     if (e.button !== 0 && e.button !== 1) return
@@ -118,19 +139,21 @@ export default function Viewport({ engineRef, onReady }) {
   const selLayer = project.layers.find((l) => l.id === ui.selectedLayer)
   const worldW = project.canvas.w / frs      // world size in px (= frame * (1+2*margin))
   const worldH = project.canvas.h / frs
-  const onLayerHandleDown = (e) => {
+  const onLayerAxisDown = (axis) => (e) => {
     if (ui.cursorEdit || e.button !== 0 || !selLayer) return
     e.stopPropagation(); e.preventDefault()
     const rectW = canvasRef.current.getBoundingClientRect().width
-    moveRef.current = { sx: e.clientX, sy: e.clientY, ox: selLayer.transform.x, oy: selLayer.transform.y, k: worldW / rectW }
+    moveRef.current = { sx: e.clientX, sy: e.clientY, ox: selLayer.transform.x, oy: selLayer.transform.y, k: worldW / rectW, axis }
   }
   useEffect(() => {
     const move = (e) => {
       const mv = moveRef.current; if (!mv) return
       const fine = e.shiftKey ? 0.2 : 1     // hold Shift for precise nudging
+      const dx = Math.round(mv.ox + (e.clientX - mv.sx) * mv.k * fine)
+      const dy = Math.round(mv.oy + (e.clientY - mv.sy) * mv.k * fine)
       updateTransform(ui.selectedLayer, {
-        x: Math.round(mv.ox + (e.clientX - mv.sx) * mv.k * fine),
-        y: Math.round(mv.oy + (e.clientY - mv.sy) * mv.k * fine),
+        x: mv.axis === 'y' ? mv.ox : dx,   // lock the other axis when dragging an arrow
+        y: mv.axis === 'x' ? mv.oy : dy,
       })
     }
     const up = () => { moveRef.current = null }
@@ -157,7 +180,7 @@ export default function Viewport({ engineRef, onReady }) {
 
   return (
     <div className="center">
-      <div className="viewwrap" ref={wrapRef} onWheel={onWheel} onPointerDown={startPan}
+      <div className="viewwrap" ref={wrapRef} onPointerDown={startPan}
         onMouseDown={(e) => { if (e.button === 1) e.preventDefault() }}
         onAuxClick={(e) => e.preventDefault()}
         onDoubleClick={() => { if (!ui.cursorEdit) resetView() }}
@@ -198,19 +221,33 @@ export default function Viewport({ engineRef, onReady }) {
             ))}
           </svg>
 
-          {/* selected-layer move gizmo: bounding box + a grab handle at its centre (Shift = fine) */}
-          {giz && (
-            <svg viewBox={`0 0 ${AX} 100`} preserveAspectRatio="none"
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-              <rect x={giz.cx - giz.hw} y={giz.cy - giz.hh} width={giz.hw * 2} height={giz.hh * 2}
-                fill="none" stroke="rgba(127,209,193,.8)" strokeWidth="0.8" strokeDasharray="4 3"
-                vectorEffect="non-scaling-stroke" />
-              <circle cx={giz.cx} cy={giz.cy} r="1.8" fill="rgba(127,209,193,.35)" stroke="#7fd1c1" strokeWidth="0.8"
-                vectorEffect="non-scaling-stroke"
-                style={{ cursor: moveRef.current ? 'grabbing' : 'grab', pointerEvents: 'auto' }}
-                onPointerDown={onLayerHandleDown} />
-            </svg>
-          )}
+          {/* selected-layer transform gizmo: dashed bounds + X (red) / Y (green) axis arrows +
+              a free-move square at the centre. Drag an arrow to lock to that axis. Shift = fine. */}
+          {giz && (() => {
+            const L = 11 / view.z, HR = 1.6 / view.z   // constant-ish on-screen size regardless of zoom
+            return (
+              <svg viewBox={`0 0 ${AX} 100`} preserveAspectRatio="none"
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                <rect x={giz.cx - giz.hw} y={giz.cy - giz.hh} width={giz.hw * 2} height={giz.hh * 2}
+                  fill="none" stroke="rgba(127,209,193,.55)" strokeWidth="0.6" strokeDasharray="4 3"
+                  vectorEffect="non-scaling-stroke" />
+                {/* X axis (red) */}
+                <line x1={giz.cx} y1={giz.cy} x2={giz.cx + L} y2={giz.cy} stroke="#ff6b6b" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+                <circle cx={giz.cx + L} cy={giz.cy} r={HR} fill="#ff6b6b" stroke="#000" strokeWidth="0.4"
+                  vectorEffect="non-scaling-stroke" style={{ cursor: 'ew-resize', pointerEvents: 'auto' }}
+                  onPointerDown={onLayerAxisDown('x')} />
+                {/* Y axis (green, +y = down) */}
+                <line x1={giz.cx} y1={giz.cy} x2={giz.cx} y2={giz.cy + L} stroke="#7fd166" strokeWidth="1.2" vectorEffect="non-scaling-stroke" />
+                <circle cx={giz.cx} cy={giz.cy + L} r={HR} fill="#7fd166" stroke="#000" strokeWidth="0.4"
+                  vectorEffect="non-scaling-stroke" style={{ cursor: 'ns-resize', pointerEvents: 'auto' }}
+                  onPointerDown={onLayerAxisDown('y')} />
+                {/* free move (centre) */}
+                <rect x={giz.cx - HR} y={giz.cy - HR} width={HR * 2} height={HR * 2} fill="rgba(127,209,193,.5)" stroke="#7fd1c1" strokeWidth="0.5"
+                  vectorEffect="non-scaling-stroke" style={{ cursor: moveRef.current ? 'grabbing' : 'move', pointerEvents: 'auto' }}
+                  onPointerDown={onLayerAxisDown('free')} />
+              </svg>
+            )
+          })()}
 
           {cur?.enabled && pts.length > 0 && (() => {
             const dur = project.duration || 1
