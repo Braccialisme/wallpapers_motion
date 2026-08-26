@@ -52,7 +52,6 @@ export default function App() {
   const loadProject = useStore((s) => s.loadProject)
   const newProject = useStore((s) => s.newProject)
   const [busy, setBusy] = useState(false)
-  const [wallSel, setWallSel] = useState(0)   // which physical wall to cut for export (3-wall master)
   const [engineEpoch, setEngineEpoch] = useState(0)   // bumps whenever a new engine is created
   useShortcuts()
   const fileHandle = useRef(null)
@@ -402,7 +401,7 @@ export default function App() {
       // 22050 combined master exceeds the max GPU texture, so it's exported one physical wall
       // at a time — each wall cut out and centred at its native size.
       const is3 = st.project.canvas.w > 16384
-      const wall = is3 ? WALLS_3[wallSel] : null
+      const wall = is3 ? WALLS_3[st.ui.wallSel] : null
       const proj = wall ? deriveWall(st.project, wall) : st.project
       const suffix = wall ? `_${wall.key}` : ''
       const renderFrame = (t, w, h) =>
@@ -425,7 +424,7 @@ export default function App() {
   const doStill = async () => {
     const st = useStore.getState()
     const is3 = st.project.canvas.w > 16384
-    const wall = is3 ? WALLS_3[wallSel] : null
+    const wall = is3 ? WALLS_3[st.ui.wallSel] : null
     const proj = wall ? deriveWall(st.project, wall) : st.project
     const renderFrame = (t, w, h) =>
       engineRef.current.renderToBlob(resolveProject(proj, t), t, w, h)
@@ -475,10 +474,17 @@ export default function App() {
         <button className="btn sm" onClick={doOpenFile}>Open</button>
         <button className="btn sm" title="save as a new file" onClick={() => doSave(true)}>Save As</button>
         {project.canvas.w > 16384 && (
-          <select title="which physical wall to cut out for export" value={wallSel}
-            onChange={(e) => setWallSel(Number(e.target.value))}>
-            {WALLS_3.map((w, i) => <option key={i} value={i}>{`cut: ${w.name}`}</option>)}
-          </select>
+          <>
+            <select title="which physical wall to cut out for export / preview" value={ui.wallSel}
+              onChange={(e) => setUI({ wallSel: Number(e.target.value) })}>
+              {WALLS_3.map((w, i) => <option key={i} value={i}>{`cut: ${w.name}`}</option>)}
+            </select>
+            <button className={'btn sm' + (ui.cutPreview ? ' on' : '')}
+              title="preview this wall EXACTLY as it will export (frame-only) — paper gaps show here so there are no surprises"
+              onClick={() => setUI({ cutPreview: !ui.cutPreview })}>
+              {ui.cutPreview ? '● cut view' : '○ cut view'}
+            </button>
+          </>
         )}
         <button className="btn sm" onClick={doStill} disabled={!!exp}>PNG</button>
         <button className="btn pri" onClick={doExport} disabled={!!exp}>

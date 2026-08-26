@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import Engine from '../engine/Engine.js'
-import { useStore, resolveProject, cursorAt, WALL_ZONES } from '../store.js'
+import { useStore, resolveProject, cursorAt, WALL_ZONES, WALLS_3, deriveWall } from '../store.js'
 import { audioState, startAudio, stopAudio } from '../engine/audio.js'
 
 export default function Viewport({ engineRef, onReady }) {
@@ -27,12 +27,17 @@ export default function Viewport({ engineRef, onReady }) {
         if (t > project.duration) t = ui.loop ? t % project.duration : project.duration
         s.setUI({ time: t })
       }
-      // preview renders the WORLD (frame + surround); width is the world width
-      const wf = 1 + 2 * (project.canvas.margin ?? 1.0)
-      const pw = Math.round(Math.min(ui.previewWidth, project.canvas.w) * wf)
-      const ph = Math.max(2, Math.round((pw * project.canvas.h) / project.canvas.w))
+      // cut-view: preview one physical wall EXACTLY as it exports (frame-only, per wall) so paper
+      // gaps are visible here — no more preview-vs-export surprises.
+      const cut = project.canvas.w > 16384 && ui.cutPreview
+      const wall = cut ? WALLS_3[ui.wallSel || 0] : null
+      const rp = wall ? deriveWall(project, wall) : project
+      const baseW = wall ? wall.w : project.canvas.w
+      const wf = wall ? 1 : 1 + 2 * (project.canvas.margin ?? 1.0)
+      const pw = Math.round(Math.min(ui.previewWidth, baseW) * wf)
+      const ph = Math.max(2, Math.round((pw * project.canvas.h) / baseW))
       try {
-        engine.render(resolveProject(project, ui.time), ui.time, { width: pw, height: ph, viewDepth: ui.viewDepth })
+        engine.render(resolveProject(rp, ui.time), ui.time, { width: pw, height: ph, viewDepth: ui.viewDepth, frameOnly: !!wall })
       } catch (e) { console.error('[render]', e) }
     }
     rafRef.current = requestAnimationFrame(loop)
@@ -48,11 +53,13 @@ export default function Viewport({ engineRef, onReady }) {
   const updateTransform = useStore((s) => s.updateTransform)
 
   // world / frame geometry ---------------------------------------------------
-  const m = project.canvas.margin ?? 1.0
+  const cutView = project.canvas.w > 16384 && ui.cutPreview   // previewing a single wall, frame-only
+  const cutWall = cutView ? WALLS_3[ui.wallSel || 0] : null
+  const m = cutWall ? 0 : (project.canvas.margin ?? 1.0)
   const fr = m > 0 ? m / (1 + 2 * m) : 0     // frame origin within the world (normalised)
   const frs = 1 / (1 + 2 * m)                // frame size within the world
   const fitZ = 1 / frs                       // zoom that makes the frame fill the viewport
-  const aspect = project.canvas.w / project.canvas.h   // frame == world aspect (equal margin)
+  const aspect = (cutWall ? cutWall.w : project.canvas.w) / project.canvas.h
   const toFrame = (n) => ({ x: (n.x - fr) / frs, y: (n.y - fr) / frs })   // world-norm -> frame-norm
 
   // zoom / pan ---------------------------------------------------------------
@@ -169,7 +176,7 @@ export default function Viewport({ engineRef, onReady }) {
   const wy = (fy) => (fr + fy * frs) * 100
 
   // selected-layer gizmo geometry (world-normalised -> SVG units)
-  const giz = selLayer && !ui.cursorEdit ? (() => {
+  const giz = selLayer && !ui.cursorEdit && !cutView ? (() => {
     const t = selLayer.transform
     const iw = selLayer.imgW || project.canvas.w, ih = selLayer.imgH || project.canvas.h
     return {
@@ -200,22 +207,22 @@ export default function Viewport({ engineRef, onReady }) {
               vectorEffect="non-scaling-stroke" />
             {/* 3-wall master. Thematic zones (from the scenography SVG) = faint guides to place
                 content on the right theme. Physical walls (the export cut) = solid blue lines. */}
-            {project.canvas.w > 16384 && WALL_ZONES.slice(1, -1).map((z, i) => {
+            {project.canvas.w > 16384 && !cutView && WALL_ZONES.slice(1, -1).map((z, i) => {
               const fx = (fr + z * frs) * AX
               return <line key={'z' + i} x1={fx} y1={fr * 100} x2={fx} y2={(fr + frs) * 100}
                 stroke="rgba(127,209,193,.45)" strokeWidth="0.4" strokeDasharray="2 6" vectorEffect="non-scaling-stroke" />
             })}
-            {project.canvas.w > 16384 && WALL_ZONES.slice(0, -1).map((z, i) => {
+            {project.canvas.w > 16384 && !cutView && WALL_ZONES.slice(0, -1).map((z, i) => {
               const cx = (z + WALL_ZONES[i + 1]) / 2
               return <text key={'zl' + i} x={(fr + cx * frs) * AX} y={(fr + frs) * 100 - 3}
                 fill="rgba(127,209,193,.6)" fontSize="2.4" textAnchor="middle">{i + 1}</text>
             })}
-            {project.canvas.w > 16384 && [8750, 13300].map((bx) => {
+            {project.canvas.w > 16384 && !cutView && [8750, 13300].map((bx) => {
               const fx = (fr + (bx / project.canvas.w) * frs) * AX
               return <line key={bx} x1={fx} y1={fr * 100} x2={fx} y2={(fr + frs) * 100}
                 stroke="rgba(0,124,255,.9)" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
             })}
-            {project.canvas.w > 16384 && [['Left', 4375], ['Front', 11025], ['Right', 17675]].map(([n, cx]) => (
+            {project.canvas.w > 16384 && !cutView && [['Left', 4375], ['Front', 11025], ['Right', 17675]].map(([n, cx]) => (
               <text key={'w' + n} x={(fr + (cx / project.canvas.w) * frs) * AX} y={fr * 100 + 5}
                 fill="rgba(0,124,255,.95)" fontSize="3.2" textAnchor="middle">{n}</text>
             ))}

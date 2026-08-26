@@ -100,6 +100,8 @@ export const useStore = create((set, get) => ({
     showGuide: false,
     cursorEdit: false,
     selectedKey: null,
+    wallSel: 0,        // which physical wall (3-wall master) is selected for cut / preview
+    cutPreview: false, // preview the selected wall EXACTLY as it exports (frame-only, per wall)
   },
   // depth estimation settings (shared by every layer)
   depth: { model: 'small', source: 'relief', refine: true, radius: 8, eps: 0.02,
