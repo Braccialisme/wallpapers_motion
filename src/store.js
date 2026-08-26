@@ -274,6 +274,34 @@ export const useStore = create((set, get) => ({
              project: { ...s.project, layers } }
   }),
 
+  // TILE FILL: repeat a layer (a textile / pattern) edge-to-edge across the whole wall so it
+  // fills the frame with NO paper gap — crisp repeats, never stretched. Idempotent: re-running
+  // drops the previous tiles of this image and rebuilds; running on a tile acts on its original.
+  tileFill: (layerId) => set((s) => {
+    const fw = s.project.canvas.w, fh = s.project.canvas.h
+    const src = s.project.layers.find((l) => l.id === layerId)
+    if (!src) return {}
+    const origId = src._tileOf || src.id
+    const orig = s.project.layers.find((l) => l.id === origId) || src
+    const rest = s.project.layers.filter((l) => l.id !== origId && l._tileOf !== origId)  // strip old tiles
+    const iw = orig.imgW || fw, ih = orig.imgH || fh
+    const scale = fh / ih            // fit height, keep aspect (no stretch)
+    const tileW = iw * scale
+    const count = Math.max(1, Math.ceil(fw / tileW) + 1)   // +1 so the far edge is always covered
+    const total = count * tileW
+    let x = -total / 2
+    const tiles = []
+    for (let i = 0; i < count; i++) {
+      const base = i === 0
+        ? { ...orig, _tileOf: origId }
+        : { ...orig, id: uid('layer'), _tileOf: origId, _tileDup: true, effects: (orig.effects || []).map((f) => ({ ...f, id: uid('fx') })) }
+      tiles.push({ ...base, transform: { ...orig.transform, x: Math.round(x + tileW / 2), y: 0, scale, clip: null } })
+      x += tileW
+    }
+    return { ui: { ...s.ui, status: `tiled ${count}× to fill the wall — no paper` },
+             project: { ...s.project, layers: [...rest, ...tiles] } }
+  }),
+
   // One control for the beige "depth" ghost colour across the whole project: set the emboss
   // 'tint' (the un-revealed / depth-relief colour) on every layer at once. Also remembered in
   // ui.depthColour so the global picker shows the current value.

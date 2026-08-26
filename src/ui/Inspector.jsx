@@ -111,6 +111,7 @@ export default function Inspector({ onRedepth }) {
   const { project, ui } = useStore()
   const updateTransform = useStore((s) => s.updateTransform)
   const updateLayer = useStore((s) => s.updateLayer)
+  const tileFill = useStore((s) => s.tileFill)
   const layer = project.layers.find((l) => l.id === ui.selectedLayer)
   const [tab, setTab] = useState('layer')
 
@@ -187,6 +188,8 @@ export default function Inspector({ onRedepth }) {
                 <button className="btn sm grow" onClick={() => updateTransform(layer.id, {
                   scale: project.canvas.h / (layer.imgH || project.canvas.h),
                 })}>Fit height</button>
+                <button className="btn sm grow" title="repeat this image across the whole wall (no paper gap) — great for textiles/patterns"
+                  onClick={() => tileFill(layer.id)}>Tile fill</button>
               </div>
             </div>
           </div>
