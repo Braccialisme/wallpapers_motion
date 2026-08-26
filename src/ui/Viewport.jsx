@@ -201,9 +201,19 @@ export default function Viewport({ engineRef, onReady }) {
           {/* the export frame (artboard) outline; everything outside is the work surface */}
           <svg viewBox={`0 0 ${AX} 100`} preserveAspectRatio="none"
             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-            {/* the export frame outline only — the surround is the dark pasteboard itself */}
+            {/* darken everything OUTSIDE the export frame so it's unmistakable: bright = exports,
+                dimmed = parked/pasteboard (won't export). No more photos "disappearing" on export. */}
+            {m > 0 && (
+              <>
+                <rect x="0" y="0" width={fr * AX} height="100" fill="rgba(0,0,0,.62)" />
+                <rect x={(fr + frs) * AX} y="0" width={fr * AX} height="100" fill="rgba(0,0,0,.62)" />
+                <rect x={fr * AX} y="0" width={frs * AX} height={fr * 100} fill="rgba(0,0,0,.62)" />
+                <rect x={fr * AX} y={(fr + frs) * 100} width={frs * AX} height={fr * 100} fill="rgba(0,0,0,.62)" />
+              </>
+            )}
+            {/* the export frame outline */}
             <rect x={fr * AX} y={fr * 100} width={frs * AX} height={frs * 100}
-              fill="none" stroke="rgba(255,255,255,.45)" strokeWidth="0.6"
+              fill="none" stroke="rgba(255,255,255,.7)" strokeWidth="0.8"
               vectorEffect="non-scaling-stroke" />
             {/* 3-wall master. Thematic zones (from the scenography SVG) = faint guides to place
                 content on the right theme. Physical walls (the export cut) = solid blue lines. */}
